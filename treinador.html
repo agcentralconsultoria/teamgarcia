@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeamGarcia · Treinador</title>
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+<style>
+  .layout { display: flex; min-height: 100vh; }
+  body.nologin .side, body.nologin .mobile-top { display: none !important; }
+  .side .side-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; color: var(--muted); font-weight: 600; text-decoration: none; }
+  .side { width: 230px; flex: none; background: var(--bg2); border-right: 1px solid var(--line); padding: 16px 10px; position: sticky; top: 0; height: 100vh; overflow: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; font-weight: 800; font-size: 18px; }
+  .brand i { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), #0f766e); display: grid; place-items: center; font-style: normal; color: #fff; font-size: 13px; font-weight: 900; }
+  .side button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; color: var(--muted); font-weight: 600; text-align: left; }
+  .side button.on { background: rgba(45,212,191,.12); color: var(--accent); }
+  .side .sec { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 14px 12px 6px; opacity: .7; }
+  .main { flex: 1; min-width: 0; padding: 22px 26px 60px; }
+  .page-title { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+  .kpi b { display: block; font-size: 28px; font-weight: 800; margin-top: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  table.t { width: 100%; border-collapse: collapse; }
+  table.t th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  table.t td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.t tr.click { cursor: pointer; } table.t tr.click:hover td { background: var(--card2); }
+  .subtabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 16px 0; overflow-x: auto; }
+  .subtabs button { padding: 10px 14px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
+  .subtabs button.on { color: var(--accent); border-color: var(--accent); }
+  .ed-item { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  .ed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+  .ed-grid .field label { font-size: 11.5px; margin-bottom: 4px; }
+  .ed-grid input, .ed-grid select { padding: 7px 9px; font-size: 13.5px; }
+  .tline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .icon-btn { width: 32px; height: 32px; border-radius: 9px; background: var(--card2); border: 1px solid var(--line); display: inline-grid; place-items: center; font-size: 14px; flex: none; }
+  .days { display: flex; gap: 4px; flex-wrap: wrap; }
+  .days button { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card2); font-size: 12.5px; font-weight: 600; }
+  .days button.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .vol { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sticky-save { position: sticky; bottom: 12px; z-index: 5; display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .sticky-save .card { display: flex; gap: 10px; align-items: center; padding: 10px 12px; box-shadow: var(--shadow); }
+  .mobile-top { display: none; }
+  .ph { width: 90px; aspect-ratio: 3/4; border-radius: 10px; background: var(--card2) center/cover; border: 1px solid var(--line); }
+  .multi { max-height: 150px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
+  .multi label { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 3px 0; }
+  .multi input { width: auto; }
+  @media (max-width: 860px) {
+    .side { position: fixed; left: -260px; top: 0; z-index: 40; transition: left .2s; box-shadow: var(--shadow); width: 240px; }
+    .side.open { left: 0; }
+    .mobile-top { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--bg2); position: sticky; top: 0; z-index: 30; }
+    .main { padding: 16px 16px 60px; }
+    .grid2 { grid-template-columns: 1fr; }
+    table.t .hide-m { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="mobile-top"><button class="icon-btn" data-act="menu">☰</button><b>TeamGarcia · Treinador</b></div>
+<div class="layout"><aside class="side" id="side"></aside><main class="main" id="main"></main></div>
+<div id="modal"></div>
+<script src="shared.js"></script>
+<script src="tr-core.js"></script>
+<script src="tr-editores.js"></script>
+<script type="module" src="fb.js"></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1013">
+<title>TeamGarcia</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TeamGarcia">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="style.css">
+<style>
+  body { min-height: 100vh; }
+  .app { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; padding-bottom: 96px; }
+  .screen { padding: 16px 16px 8px; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px 6px; position: sticky; top: 0; background: linear-gradient(var(--bg) 75%, transparent); z-index: 5; }
+  .back { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--accent); padding: 6px 2px; }
+  .title-xl { font-size: 26px; font-weight: 800; }
+  .title-lg { font-size: 21px; font-weight: 800; }
+  .nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; display: flex; justify-content: center; padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 35%); }
+  .nav-in { display: flex; width: 100%; max-width: 456px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 6px; box-shadow: var(--shadow); }
+  .nav button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 0; border-radius: 14px; font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .nav button.on { color: var(--accent); background: rgba(45,212,191,.1); }
+  .nav svg { width: 22px; height: 22px; }
+  .hero-banner { background: linear-gradient(135deg, var(--accent2), #0f766e); color: #fff; border-radius: var(--radius); padding: 14px 16px; text-align: left; width: 100%; }
+  .big-card { width: 100%; text-align: left; display: flex; align-items: center; gap: 14px; }
+  .big-card .ico { width: 44px; height: 44px; border-radius: 12px; background: rgba(45,212,191,.12); color: var(--accent); display: grid; place-items: center; flex: none; font-size: 20px; }
+  .wk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .wk { text-align: left; }
+  .wk b { display: block; font-size: 17px; }
+  .ex-row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; width: 100%; text-align: left; }
+  .ex-num { width: 28px; height: 28px; border-radius: 8px; background: var(--card2); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--muted); flex: none; }
+  .series { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+  .play { width: 26px; height: 26px; border-radius: 50%; background: rgba(45,212,191,.15); color: var(--accent); display: inline-grid; place-items: center; font-size: 11px; flex: none; }
+  .fab { position: fixed; left: 50%; transform: translateX(-50%); bottom: 92px; z-index: 15; width: calc(100% - 32px); max-width: 448px; }
+  .exec-head { text-align: center; padding: 6px 0 2px; }
+  .exec-time { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 18px; }
+  .set-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .set-chip { min-width: 54px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--card2); font-weight: 700; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
+  .set-chip.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .set-chip.done { background: rgba(52,211,153,.16); border-color: rgba(52,211,153,.5); }
+  .num-box { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 10px; text-align: center; }
+  .num-box input { background: transparent; border: 0; text-align: center; font-size: 28px; font-weight: 800; padding: 2px; }
+  .num-box .row { justify-content: center; }
+  .step { width: 34px; height: 34px; border-radius: 10px; background: var(--card2); font-size: 18px; font-weight: 700; }
+  .timer { font-size: 54px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; letter-spacing: -.02em; }
+  .timer.run { color: var(--accent); }
+  .presets { display: flex; gap: 8px; justify-content: center; }
+  .presets button { padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card2); font-size: 12.5px; text-align: center; }
+  .presets button.on { border-color: var(--accent); color: var(--accent); }
+  .dayline { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+  .day { flex: 1; min-width: 0; padding: 8px 0; border-radius: 12px; background: var(--card); border: 1px solid var(--line); text-align: center; }
+  .day b { display: block; font-size: 17px; }
+  .day span { font-size: 11px; color: var(--muted); }
+  .day.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .day.on span { color: var(--accent-ink); }
+  .meal { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; }
+  .check { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; flex: none; font-size: 15px; }
+  .check.on { background: var(--valid); border-color: var(--valid); color: #052e1c; }
+  .food { display: flex; align-items: center; gap: 10px; padding: 11px 0; }
+  .qty { padding: 5px 10px; border-radius: 999px; background: rgba(45,212,191,.12); color: var(--accent); font-weight: 700; font-size: 12.5px; white-space: nowrap; }
+  .subs { margin: 4px 0 6px 0; padding: 4px 12px; border-left: 2px solid var(--accent2); }
+  .macro-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
+  .macro-grid b { display: block; font-size: 16px; }
+  .legend { display: grid; gap: 8px; }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; font-size: 12.5px; }
+  .cal span { padding: 7px 0; border-radius: 9px; background: var(--card2); }
+  .cal span.trained { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+  .cal span.out { opacity: .25; }
+  .cal .h { background: none; color: var(--muted); font-weight: 600; }
+  .scale { display: flex; gap: 6px; }
+  .scale button { flex: 1; padding: 10px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--card2); font-weight: 700; }
+  .scale button.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .photo { aspect-ratio: 3/4; border-radius: 12px; background: var(--card2) center/cover; border: 1px dashed var(--line); display: grid; place-items: center; color: var(--muted); font-size: 12px; text-align: center; padding: 6px; }
+  .login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 24px; max-width: 420px; margin: 0 auto; }
+  .logo { width: 64px; height: 64px; border-radius: 18px; background: linear-gradient(135deg, var(--accent), #0f766e); display: grid; place-items: center; font-weight: 900; font-size: 24px; color: #fff; }
+  .water { display: flex; align-items: center; gap: 12px; }
+  .water .glass { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: rgba(96,165,250,.15); color: var(--blue); font-size: 22px; flex: none; }
+  .pr { background: linear-gradient(135deg, rgba(251,191,36,.18), rgba(251,191,36,.05)); border: 1px solid rgba(251,191,36,.35); border-radius: 14px; padding: 12px 14px; }
+  table.hist { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.hist th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; padding: 4px 0; }
+  table.hist td { padding: 6px 0; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div id="root" class="app"></div>
+<div id="modal"></div>
+<script src="shared.js"></script>
+<script src="aluno-core.js"></script>
+<script src="aluno-mais.js"></script>
+<script type="module" src="fb.js"></script>
+</body>
+</html>

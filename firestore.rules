@@ -1,0 +1,75 @@
+rules_version = '2';
+// TeamGarcia — regras de segurança (dados de saúde, LGPD).
+// Treinador: quem tem documento em /trainers/{uid} (criado só pelo console/CLI).
+// Aluno: só lê e grava os PRÓPRIOS dados, e só enquanto estiver ativo.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isTrainer() {
+      return signedIn() && exists(/databases/$(database)/documents/trainers/$(request.auth.uid));
+    }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+    function studentDoc(uid) { return get(/databases/$(database)/documents/students/$(uid)); }
+    function isActiveStudent(uid) {
+      return isSelf(uid) && exists(/databases/$(database)/documents/students/$(uid))
+        && studentDoc(uid).data.profile.active == true;
+    }
+    function isAnyActiveStudent() { return signedIn() && isActiveStudent(request.auth.uid); }
+
+    match /trainers/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    // Bibliotecas compartilhadas (exercícios, técnicas, alimentos, questionário, materiais, configurações)
+    match /library/{doc} {
+      allow read: if isTrainer() || isAnyActiveStudent();
+      allow write: if isTrainer();
+    }
+
+    // Cadastro + ficha de treino + dieta do aluno
+    match /students/{uid} {
+      allow read: if isTrainer() || isSelf(uid);
+      allow create, delete: if isTrainer();
+      allow update: if isTrainer() || (
+        isActiveStudent(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['profile'])
+        && request.resource.data.profile.diff(resource.data.profile).affectedKeys()
+             .hasOnly(['name', 'phone', 'birth', 'weight', 'prefs', 'nextCheckin'])
+      );
+    }
+
+    // Registros do aluno (treinos, água, refeições, peso, check-ins) e fotos
+    match /logs/{uid} {
+      allow read, create, update: if isTrainer() || isActiveStudent(uid);
+      allow delete: if isTrainer();
+      match /years/{year} {
+        allow read, create, update: if isTrainer() || isActiveStudent(uid);
+        allow delete: if isTrainer();
+      }
+      match /photos/{photo} {
+        allow read: if isTrainer() || isActiveStudent(uid);
+        allow create: if (isTrainer() || isActiveStudent(uid))
+          && request.resource.data.data is string
+          && request.resource.data.data.size() < 300000;
+        allow update: if false;
+        allow delete: if isTrainer();
+      }
+    }
+
+    // Observações pessoais do treinador sobre o aluno (o aluno NÃO vê)
+    match /notes/{uid} {
+      allow read, write: if isTrainer();
+    }
+
+    // Arquivos (anexos) que o treinador manda para o aluno
+    match /files/{uid} {
+      allow read: if isTrainer() || isActiveStudent(uid);
+      allow write: if isTrainer();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
