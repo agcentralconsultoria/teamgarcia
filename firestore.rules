@@ -35,7 +35,7 @@ service cloud.firestore {
         isActiveStudent(uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['profile'])
         && request.resource.data.profile.diff(resource.data.profile).affectedKeys()
-             .hasOnly(['name', 'phone', 'birth', 'weight', 'prefs', 'nextCheckin'])
+             .hasOnly(['name', 'phone', 'birth', 'weight', 'prefs', 'nextCheckin', 'nextMonthly'])
       );
     }
 

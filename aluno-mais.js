@@ -154,12 +154,15 @@
 
   /* ---------- Evolução ---------- */
   A.views.evo = function () {
-    var me = A.me(), l = A.logs(), lastCk = l.checkins[l.checkins.length - 1];
+    var me = A.me(), l = A.logs();
+    var lastW = l.checkins.filter(function (c) { return c.kind !== "mensal"; }).pop(), lastM = l.checkins.filter(function (c) { return c.kind === "mensal"; }).pop();
     var fb = l.checkins.filter(function (c) { return c.feedback; }).length;
-    function item(v, ico, title, desc, extra) { return '<button class="card big-card" data-act="go" data-v="' + v + '"><div class="ico">' + ico + '</div><div class="grow"><b>' + title + '</b><div class="small muted">' + desc + "</div></div>" + (extra || "›") + "</button>"; }
+    function item(v, ico, title, desc, extra, p) { return '<button class="card big-card" data-act="go" data-v="' + v + '"' + (p ? ' data-p="' + A.dp(p) + '"' : "") + '><div class="ico">' + ico + '</div><div class="grow"><b>' + title + '</b><div class="small muted">' + desc + "</div></div>" + (extra || "›") + "</button>"; }
     return '<div class="screen stack"><div class="title-xl">Evolução</div>' +
-      '<div class="card tight row between"><span>Próximo check-in</span><b>' + P.fmtDate(me.nextCheckin) + "</b></div>" +
-      item("checkin", "📋", "Check-in", "Questionário + fotos de evolução" + (lastCk ? " · último em " + P.fmtDate(lastCk.date) : ""), '<span class="pill accent">Responder</span>') +
+      '<div class="card tight row between"><span>Próximo check-in semanal</span><b>' + P.fmtDate(me.nextCheckin) + "</b></div>" +
+      item("checkin", "📋", "Check-in semanal", "Questionário da semana" + (lastW ? " · último em " + P.fmtDate(lastW.date) : ""), '<span class="pill accent">Responder</span>', { kind: "semanal" }) +
+      item("checkin", "📏", "Check-in mensal", "Medidas + fotos · próximo em " + P.fmtDate(me.nextMonthly) + (lastM ? " · último em " + P.fmtDate(lastM.date) : ""), '<span class="pill accent">Responder</span>', { kind: "mensal" }) +
+      item("medidas", "📐", "Minhas medidas", "Histórico das medidas do check-in mensal") +
       item("feedbacks", "💬", "Observações do treinador", fb ? fb + " resposta(s) aos seus check-ins" : "Ainda sem respostas") +
       item("peso", "⚖️", "Histórico de peso", "Gráfico e registros") +
       item("progressao", "📈", "Progressão de carga", "Evolução de cada exercício") +
@@ -168,48 +171,60 @@
       item("anexos", "📎", "Anexos", "Arquivos enviados pelo treinador") + "</div>";
   };
 
-  A.views.checkin = function () {
-    A._ck = A._ck || { answers: {}, photos: [] };
-    var qs = P.db.questionnaire, minP = P.db.settings.minPhotos || 0;
-    var html = A.top("Check-in") + '<div class="screen stack"><div class="title-xl">Check-in</div><div class="muted small">Responda com sinceridade, é assim que o seu plano é ajustado.</div>';
-    qs.forEach(function (q, i) {
+  A.ckKind = function (p) { return p && p.kind === "mensal" ? "mensal" : "semanal"; };
+  A.ckPhotos = function (kind) { return kind === "mensal" || !!P.db.settings.weeklyPhotos; };
+  A.views.checkin = function (p) {
+    var kind = A.ckKind(p), title = kind === "mensal" ? "Check-in mensal" : "Check-in semanal";
+    if (!A._ck || A._ck.kind !== kind) A._ck = { kind: kind, answers: {}, photos: [] };
+    var qs = P.qList(kind), minP = P.db.settings.minPhotos || 0, n = 0;
+    var html = A.top(title) + '<div class="screen stack"><div class="title-xl">' + title + '</div><div class="muted small">' + (kind === "mensal" ? "Medidas em jejum e fotos no mesmo dia." : "Responda com sinceridade, é assim que o seu plano é ajustado.") + "</div>";
+    qs.forEach(function (q) {
       var a = A._ck.answers[q.id];
-      html += '<div class="card stack"><b>' + (i + 1) + ". " + esc(q.text) + "</b>";
+      html += '<div class="card stack">' + (q.type === "info" ? '<div style="white-space:pre-line">' + esc(q.text) + "</div>" : "<b>" + (++n) + ". " + esc(q.text) + "</b>") + (q.img ? '<img src="' + q.img + '" alt="" style="width:100%;border-radius:12px;background:#fff">' : "");
+      if (q.type === "info") { html += "</div>"; return; }
       if (q.type === "scale") html += '<div class="scale">' + [1, 2, 3, 4, 5].map(function (n) { return '<button data-act="ckAns" data-q="' + q.id + '" data-v="' + n + '" class="' + (a === n ? "on" : "") + '">' + n + "</button>"; }).join("") + '</div><div class="row between small muted"><span>Ruim</span><span>Ótimo</span></div>';
-      else if (q.type === "choice") html += '<div class="row wrap">' + q.options.map(function (o) { return '<button class="chip' + (a === o ? " on" : "") + '" data-act="ckAns" data-q="' + q.id + '" data-v="' + esc(o) + '">' + esc(o) + "</button>"; }).join("") + "</div>";
+      else if (q.type === "choice") html += (q.options.some(function (o) { return o.length > 18; }) ? '<div class="stack" style="gap:8px">' + q.options.map(function (o) { return '<button class="btn block' + (a === o ? " primary" : "") + '" style="text-align:left;white-space:normal" data-act="ckAns" data-q="' + q.id + '" data-v="' + esc(o) + '">' + esc(o) + "</button>"; }).join("") : '<div class="row wrap">' + q.options.map(function (o) { return '<button class="chip' + (a === o ? " on" : "") + '" data-act="ckAns" data-q="' + q.id + '" data-v="' + esc(o) + '">' + esc(o) + "</button>"; }).join("")) + "</div>";
       else if (q.type === "number") html += '<div class="row"><input type="number" inputmode="decimal" step="0.1" data-change="ckText" data-q="' + q.id + '" value="' + (a == null ? "" : a) + '"><span class="muted">' + esc(q.unit || "") + "</span></div>";
       else html += '<textarea rows="3" data-change="ckText" data-q="' + q.id + '">' + esc(a || "") + "</textarea>";
       html += "</div>";
     });
-    html += '<div class="card stack"><b>Fotos de evolução</b><div class="small muted">Frente, lado e costas. Mesmo ângulo e mesma luz' + (minP ? " · mínimo " + minP + " fotos" : "") + '.</div><div class="photos">' +
+    if (A.ckPhotos(kind)) html += '<div class="card stack"><b>Fotos de evolução</b><div class="small muted">Frente, lado e costas. Mesmo ângulo e mesma luz' + (minP ? " · mínimo " + minP + " fotos" : "") + '.</div><div class="photos">' +
       ["Frente", "Lado", "Costas"].map(function (lab, i) {
         var ph = A._ck.photos[i];
         return '<label class="photo" style="' + (ph ? "background-image:url(" + ph + ");border-style:solid" : "") + '">' + (ph ? "" : "📷<br>" + lab) + '<input type="file" accept="image/*" hidden data-change="ckPhoto" data-i="' + i + '"></label>';
-      }).join("") + '</div></div><button class="btn primary block" style="padding:15px" data-act="sendCheckin">Enviar check-in</button></div>';
+      }).join("") + "</div></div>";
+    html += '<button class="btn primary block" style="padding:15px" data-act="sendCheckin">Enviar check-in</button></div>';
     return html;
   };
-  A.actions.ckAns = function (el) { var q = P.db.questionnaire.filter(function (x) { return x.id === el.dataset.q; })[0]; A._ck.answers[q.id] = q.type === "scale" ? parseInt(el.dataset.v, 10) : el.dataset.v; A.render(); };
+  A.actions.ckAns = function (el) { var q = P.qList(A._ck.kind).filter(function (x) { return x.id === el.dataset.q; })[0]; A._ck.answers[q.id] = q.type === "scale" ? parseInt(el.dataset.v, 10) : el.dataset.v; A.render(); };
   A.actions.ckText = function (el) { A._ck.answers[el.dataset.q] = el.type === "number" ? parseFloat(el.value) : el.value; };
   A.actions.ckPhoto = function (el) { var f = el.files[0]; if (!f) return; A.readImage(f, function (url) { A._ck.photos[parseInt(el.dataset.i, 10)] = url; A.render(); }); };
   A.actions.sendCheckin = function () {
-    var qs = P.db.questionnaire, miss = qs.filter(function (q) { return q.type !== "text" && (A._ck.answers[q.id] == null || A._ck.answers[q.id] === "" || (typeof A._ck.answers[q.id] === "number" && isNaN(A._ck.answers[q.id]))); });
+    var kind = A._ck.kind, qs = P.qList(kind), miss = qs.filter(function (q) { return q.type !== "text" && q.type !== "info" && (A._ck.answers[q.id] == null || A._ck.answers[q.id] === "" || (typeof A._ck.answers[q.id] === "number" && isNaN(A._ck.answers[q.id]))); });
     if (miss.length) { A.toast("Falta responder: " + miss[0].text); return; }
-    var photos = A._ck.photos.filter(Boolean), minP = P.db.settings.minPhotos || 0;
+    var photos = A._ck.photos.filter(Boolean), minP = A.ckPhotos(kind) ? P.db.settings.minPhotos || 0 : 0;
     if (photos.length < minP) { A.toast("Envie pelo menos " + minP + " fotos."); return; }
     var l = A.logs(), me = A.me(), date = P.todayISO();
-    l.checkins.push({ id: P.uid("ck"), date: date, answers: A._ck.answers, photos: A._ck.photos.slice(), feedback: null });
+    l.checkins.push({ id: P.uid("ck"), kind: kind, date: date, answers: A._ck.answers, photos: A._ck.photos.slice(), feedback: null });
     var wq = qs.filter(function (q) { return q.type === "number" && /peso/i.test(q.text); })[0];
     if (wq && A._ck.answers[wq.id]) { l.weights.push({ date: date, kg: A._ck.answers[wq.id] }); me.weight = A._ck.answers[wq.id]; }
-    me.nextCheckin = P.addDays(date, 7);
+    if (kind === "mensal") me.nextMonthly = P.addDays(date, 30); else me.nextCheckin = P.addDays(date, 7);
     P.save(); A._ck = null; A.stack = [{ v: "evo", p: {} }]; A.tabRoot = "evo"; A.render(true); A.toast("✅ Check-in enviado ao treinador!");
   };
 
   A.views.feedbacks = function () {
     var l = A.logs().checkins.slice().reverse();
     return A.top("Observações") + '<div class="screen stack"><div class="title-xl">Observações do treinador</div>' + (l.length ? l.map(function (c) {
-      return '<div class="card stack"><div class="row between"><b>Check-in de ' + P.fmtDate(c.date) + "</b>" + (c.feedback ? '<span class="pill accent">Respondido</span>' : '<span class="pill">Aguardando</span>') + "</div>" +
+      return '<div class="card stack"><div class="row between"><b>Check-in ' + (c.kind === "mensal" ? "mensal" : "semanal") + " de " + P.fmtDate(c.date) + "</b>" + (c.feedback ? '<span class="pill accent">Respondido</span>' : '<span class="pill">Aguardando</span>') + "</div>" +
         (c.feedback ? '<div style="white-space:pre-line">' + esc(c.feedback.text) + '</div><div class="small muted">' + P.fmtDate(c.feedback.date) + "</div>" : '<div class="small muted">Seu treinador ainda vai responder.</div>') + "</div>";
     }).join("") : '<div class="empty">Você ainda não enviou check-ins.</div>') + "</div>";
+  };
+
+  A.views.medidas = function () {
+    var qs = P.qList("mensal").filter(function (q) { return q.type === "number" || q.type === "text"; });
+    var list = A.logs().checkins.filter(function (c) { return c.kind === "mensal"; }).slice().reverse();
+    return A.top("Medidas") + '<div class="screen stack"><div class="title-xl">Minhas medidas</div>' + (list.length && qs.length ? '<div class="card" style="overflow-x:auto"><table class="hist"><tr><th>Medida</th>' + list.map(function (c) { return "<th>" + P.fmtDate(c.date).slice(0, 5) + "</th>"; }).join("") + "</tr>" +
+      qs.map(function (q) { return "<tr><td>" + esc(q.text) + (q.unit ? ' <span class="muted">(' + esc(q.unit) + ")</span>" : "") + "</td>" + list.map(function (c) { var a = c.answers[q.id]; return "<td><b>" + (a == null || a === "" ? "—" : esc(a)) + "</b></td>"; }).join("") + "</tr>"; }).join("") + "</table></div>" : '<div class="empty">Suas medidas aparecem aqui depois do primeiro check-in mensal.</div>') + "</div>";
   };
 
   A.views.peso = function () {

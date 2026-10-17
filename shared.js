@@ -70,6 +70,14 @@
       { id: "q7", text: "Quer contar algo para o treinador?", type: "text" }
     ];
 
+    // Check-in mensal: medidas (cm) + fotos
+    var questionnaireMonthly = [
+      { id: "m1", text: "Peso de hoje (em jejum)", type: "number", unit: "kg" },
+      { id: "m2", text: "Cintura", type: "number", unit: "cm" },
+      { id: "m3", text: "Abdômen", type: "number", unit: "cm" },
+      { id: "m4", text: "Quadril", type: "number", unit: "cm" }
+    ];
+
     var materials = [
       { id: uid("mat"), title: "Guia para manter a dieta nos fins de semana", desc: "Estratégias simples para não sair do plano.", body: "1. Planeje antes.\n2. Priorize proteína em todas as refeições.\n3. Escolha uma refeição livre, não um dia livre.\n4. Volte ao plano na refeição seguinte, sem culpa." },
       { id: uid("mat"), title: "Como registrar suas cargas", desc: "Por que anotar cada série faz diferença.", body: "Anotar peso e repetições permite progredir com segurança. Tente superar o último registro em carga OU repetições." },
@@ -78,8 +86,8 @@
 
     return {
       groups: GROUPS, exercises: ex, techniques: techniques, foods: foods,
-      questionnaire: questionnaire, materials: materials,
-      settings: { minPhotos: 3, askEffortOnFinish: true, allowUnitChange: true, appName: APP_NAME }
+      questionnaire: questionnaire, questionnaireMonthly: questionnaireMonthly, materials: materials,
+      settings: { minPhotos: 3, weeklyPhotos: false, askEffortOnFinish: true, allowUnitChange: true, appName: APP_NAME }
     };
   }
 
@@ -94,7 +102,7 @@
        files/{uid}                anexos que o treinador manda ao aluno
        trainers/{uid}             marca quem é o treinador (criado só pelo console)  */
   var db = null, role = null, myUid = null, loader = null;
-  var LIB_KEYS = ["groups", "exercises", "techniques", "foods", "questionnaire", "materials", "settings"];
+  var LIB_KEYS = ["groups", "exercises", "techniques", "foods", "questionnaire", "questionnaireMonthly", "materials", "settings"];
   var LOG_KEYS = ["water", "mealsDone", "mealNotes", "weights", "checkins", "cardio", "materialsSeen", "workoutNotes"];
   var DEEP = { profile: 1, feedback: 1 }; // campos gravados item a item (treinador e aluno não se atropelam)
   var saved = {}, filesLoaded = {}, filesLoading = {}, photoCache = {}, photoWaiting = {};
@@ -314,6 +322,8 @@
   function exercise(id) { return db.exercises.filter(function (e) { return e.id === id; })[0] || { name: "(exercício removido)", group: "" }; }
   function technique(id) { return db.techniques.filter(function (t) { return t.id === id; })[0]; }
   function food(id) { return db.foods.filter(function (f) { return f.id === id; })[0] || { name: "(alimento removido)", kcal: 0, p: 0, c: 0, g: 0, fib: 0, units: [] }; }
+  /* Questionário do check-in: "mensal" (medidas + fotos) ou semanal (padrão) */
+  function qList(kind) { return (kind === "mensal" ? db.questionnaireMonthly : db.questionnaire) || []; }
   function student(id) { return db.students.filter(function (s) { return s.id === id; })[0]; }
   function logsOf(id) {
     if (!db.logs[id]) db.logs[id] = emptyLogs();
@@ -410,7 +420,7 @@
     get db() { return db; }, get role() { return role; }, get myUid() { return myUid; },
     photo: photo, ensureFiles: ensureFiles, createStudent: createStudent, authError: authError, waLink: waLink,
     uid: uid, todayISO: todayISO, addDays: addDays, fmtDate: fmtDate, esc: esc, round1: round1,
-    exercise: exercise, technique: technique, food: food, student: student, logsOf: logsOf,
+    exercise: exercise, technique: technique, qList: qList, food: food, student: student, logsOf: logsOf,
     macrosOf: macrosOf, sumMacros: sumMacros, optionMacros: optionMacros, variationMacros: variationMacros,
     subGrams: subGrams, variationForDay: variationForDay, parseRestRange: parseRestRange, fmtSec: fmtSec,
     volumeByGroup: volumeByGroup, lastSetsFor: lastSetsFor, exerciseHistory: exerciseHistory,

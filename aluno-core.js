@@ -154,7 +154,8 @@
     var ck = daysCk <= 0 ? "Seu check-in está liberado. Responda agora!" : "Faltam " + daysCk + " dia" + (daysCk > 1 ? "s" : "") + " para o seu check-in.";
     var html = '<div class="screen stack">' +
       '<div class="row between"><div><div class="muted">Olá,</div><div class="title-xl">' + esc(me.name.split(" ")[0]) + '</div></div><button class="btn sm" data-act="go" data-v="perfil">Perfil</button></div>' +
-      '<button class="hero-banner" data-act="go" data-v="checkin"><div class="small" style="opacity:.85">Check-in</div><b>' + esc(ck) + "</b></button>";
+      '<button class="hero-banner" data-act="go" data-v="checkin"><div class="small" style="opacity:.85">Check-in semanal</div><b>' + esc(ck) + "</b></button>" +
+      (me.nextMonthly && me.nextMonthly <= today ? '<button class="hero-banner" data-act="go" data-v="checkin" data-p="' + A.dp({ kind: "mensal" }) + '"><div class="small" style="opacity:.85">Check-in mensal</div><b>Hora das medidas e fotos do mês. Responda agora!</b></button>' : "");
     if (A.active) html += '<button class="card big-card" data-act="go" data-v="exec" style="border-color:var(--accent)"><div class="ico">▶</div><div class="grow"><b>Treino em andamento</b><div class="small muted">' + esc(A.active.workoutName) + " · toque para continuar</div></div></button>";
     html += '<div class="card"><div class="row between"><b>Treinos da semana</b><span class="muted small">' + done + "/" + goal + '</span></div><div class="progress" style="margin-top:10px"><i style="width:' + Math.min(100, done / goal * 100) + '%"></i></div></div>';
     if (next) html += '<button class="card big-card" data-act="go" data-v="treino" data-p="' + A.dp({ id: next.id }) + '"><div class="ico">🏋️</div><div class="grow"><div class="small muted">Próximo treino</div><b style="font-size:18px">' + esc(next.name) + '</b><div class="small muted">' + esc(next.subtitle || "") + "</div></div><span>›</span></button>";

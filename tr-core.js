@@ -9,7 +9,7 @@
   T.render = function (top) {
     document.body.classList.toggle("nologin", T.state !== "ready");
     if (T.state !== "ready") { document.getElementById("side").innerHTML = ""; document.getElementById("main").innerHTML = T.views.login(); return; }
-    var menu = [["sec", "Geral"], ["dash", "📊 Painel"], ["alunos", "👥 Alunos"], ["sec", "Bibliotecas"], ["exercicios", "🏋️ Exercícios"], ["tecnicas", "🎯 Técnicas"], ["alimentos", "🥗 Alimentos"], ["sec", "Acompanhamento"], ["questionario", "📋 Questionário de check-in"], ["materiais", "📚 Materiais extras"], ["config", "⚙️ Configurações"]];
+    var menu = [["sec", "Geral"], ["dash", "📊 Painel"], ["alunos", "👥 Alunos"], ["sec", "Bibliotecas"], ["exercicios", "🏋️ Exercícios"], ["tecnicas", "🎯 Técnicas"], ["alimentos", "🥗 Alimentos"], ["sec", "Acompanhamento"], ["questionario", "📋 Questionários de check-in"], ["materiais", "📚 Materiais extras"], ["config", "⚙️ Configurações"]];
     var root = T.page === "aluno" ? "alunos" : T.page;
     document.getElementById("side").innerHTML = '<div class="brand"><i>TG</i>' + esc(P.APP_NAME) + ' <span class="small muted" style="font-weight:600">treinador</span></div>' + menu.map(function (m) {
       return m[0] === "sec" ? '<div class="sec">' + m[1] + "</div>" : '<button class="' + (root === m[0] ? "on" : "") + '" data-act="nav" data-v="' + m[0] + '">' + m[1] + "</button>";
@@ -120,7 +120,7 @@
     if (!v("nsName") || !v("nsEmail") || !v("nsPass")) { T.toast("Preencha nome, e-mail e senha."); return; }
     if (v("nsPass").length < 6) { T.toast("A senha precisa ter pelo menos 6 caracteres."); return; }
     if (P.db.students.some(function (s) { return s.email.toLowerCase() === v("nsEmail").toLowerCase(); })) { T.toast("Já existe aluno com esse e-mail."); return; }
-    var s = { name: v("nsName"), email: v("nsEmail").toLowerCase(), phone: v("nsPhone"), birth: v("nsBirth"), sex: v("nsSex"), height: parseFloat(v("nsH")) || 170, weight: parseFloat(v("nsW")) || 70, activity: "Moderadamente ativo", planEnd: v("nsEnd"), active: true, tags: [], nextCheckin: P.addDays(P.todayISO(), 7), privateNotes: "" };
+    var s = { name: v("nsName"), email: v("nsEmail").toLowerCase(), phone: v("nsPhone"), birth: v("nsBirth"), sex: v("nsSex"), height: parseFloat(v("nsH")) || 170, weight: parseFloat(v("nsW")) || 70, activity: "Moderadamente ativo", planEnd: v("nsEnd"), active: true, tags: [], nextCheckin: P.addDays(P.todayISO(), 7), nextMonthly: P.addDays(P.todayISO(), 30), privateNotes: "" };
     var pass = v("nsPass");
     el.disabled = true; el.textContent = "Criando…";
     P.createStudent(s, pass).then(function (id) {
@@ -147,7 +147,7 @@
     var tmb = s.sex === "Feminino" ? 10 * s.weight + 6.25 * s.height - 5 * age - 161 : 10 * s.weight + 6.25 * s.height - 5 * age + 5;
     var gasto = tmb * 1.55, imc = s.weight / Math.pow(s.height / 100, 2);
     function f(id, label, val, type) { return '<div class="field"><label>' + label + '</label><input data-change="stField" data-k="' + id + '" type="' + (type || "text") + '" value="' + esc(val == null ? "" : val) + '"></div>'; }
-    return '<div class="grid2"><div class="card stack"><b>Dados do aluno</b><div class="grid2">' + f("name", "Nome", s.name) + ('<div class="field"><label>E-mail (login)</label><input value="' + esc(s.email) + '" readonly style="opacity:.7"></div>') + ('<div class="field"><label>Senha</label><button class="btn sm" data-act="sendReset">Enviar e-mail para nova senha</button></div>') + f("phone", "Telefone", s.phone) + f("birth", "Nascimento", s.birth, "date") + f("planEnd", "Plano válido até", s.planEnd, "date") + f("nextCheckin", "Próximo check-in", s.nextCheckin, "date") +
+    return '<div class="grid2"><div class="card stack"><b>Dados do aluno</b><div class="grid2">' + f("name", "Nome", s.name) + ('<div class="field"><label>E-mail (login)</label><input value="' + esc(s.email) + '" readonly style="opacity:.7"></div>') + ('<div class="field"><label>Senha</label><button class="btn sm" data-act="sendReset">Enviar e-mail para nova senha</button></div>') + f("phone", "Telefone", s.phone) + f("birth", "Nascimento", s.birth, "date") + f("planEnd", "Plano válido até", s.planEnd, "date") + f("nextCheckin", "Próximo check-in semanal", s.nextCheckin, "date") + f("nextMonthly", "Próximo check-in mensal", s.nextMonthly, "date") +
       '<div class="field"><label>Status</label><select data-change="stField" data-k="active"><option value="1"' + (s.active ? " selected" : "") + '>Ativo</option><option value="0"' + (!s.active ? " selected" : "") + ">Inativo (não entra no app)</option></select></div></div>" +
       (s.phone ? '<a class="btn sm" style="text-decoration:none;align-self:flex-start" target="_blank" href="https://wa.me/55' + esc(String(s.phone).replace(/\D/g, "")) + '">💬 Abrir no WhatsApp</a>' : "") + "</div>" +
       '<div class="stack"><div class="card stack"><b>Informações nutricionais</b><div class="grid2">' + f("height", "Altura (cm)", s.height, "number") + f("weight", "Peso (kg)", s.weight, "number") + "</div>" +
@@ -165,10 +165,11 @@
   };
 
   T.tabs.checkins = function (s) {
-    var l = P.logsOf(s.id).checkins.slice().reverse(), qs = P.db.questionnaire;
+    var l = P.logsOf(s.id).checkins.slice().reverse();
     if (!l.length) return '<div class="empty">Este aluno ainda não enviou check-ins.</div>';
     return l.map(function (c) {
-      return '<div class="card stack" style="margin-bottom:14px"><div class="row between"><b>Check-in de ' + P.fmtDate(c.date) + "</b>" + (c.feedback ? '<span class="pill accent">Respondido</span>' : '<span class="pill" style="color:var(--prep)">Aguardando resposta</span>') + "</div>" +
+      var qs = P.qList(c.kind).filter(function (q) { return q.type !== "info"; });
+      return '<div class="card stack" style="margin-bottom:14px"><div class="row between"><b>Check-in ' + (c.kind === "mensal" ? "mensal" : "semanal") + " de " + P.fmtDate(c.date) + "</b>" + (c.feedback ? '<span class="pill accent">Respondido</span>' : '<span class="pill" style="color:var(--prep)">Aguardando resposta</span>') + "</div>" +
         '<table class="t">' + qs.map(function (q) { var a = c.answers[q.id]; return "<tr><td class=\"muted\">" + esc(q.text) + "</td><td><b>" + (a == null || a === "" ? "—" : esc(a) + (q.type === "scale" ? " / 5" : q.unit ? " " + q.unit : "")) + "</b></td></tr>"; }).join("") + "</table>" +
         (c.photos && c.photos.filter(Boolean).length ? '<div class="row wrap">' + c.photos.filter(Boolean).map(function (ph) { return '<button class="ph" data-act="viewPhoto" data-ref="' + esc(ph) + '" style="background-image:url(' + P.photo(ph) + ')"></button>'; }).join("") + "</div>" : '<div class="small muted">Sem fotos.</div>') +
         '<div class="field"><label>Sua resposta para o aluno (aparece no app dele)</label><textarea rows="3" id="fb_' + c.id + '">' + esc(c.feedback ? c.feedback.text : "") + '</textarea></div><button class="btn primary" style="align-self:flex-start" data-act="sendFeedback" data-id="' + c.id + '">' + (c.feedback ? "Atualizar resposta" : "Enviar resposta") + "</button></div>";
@@ -193,12 +194,20 @@
     var ses = l.sessions.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
     return '<div class="grid2"><div class="card"><b>Peso</b>' + P.lineChart(w.map(function (x) { return { y: x.kg, label: P.fmtDate(x.date).slice(0, 5) }; })) + "</div>" +
       '<div class="card"><div class="row between"><b>Evolução de carga</b><select style="width:auto;max-width:60%" data-change="progEx">' + exIds.map(function (id) { return '<option value="' + id + '"' + (id === sel ? " selected" : "") + ">" + esc(P.exercise(id).name) + "</option>"; }).join("") + "</select></div>" + (pts.length ? P.lineChart(pts) : '<div class="empty">Sem registros deste exercício.</div>') + (h.best ? '<div class="small muted">🏆 Recorde: ' + h.best.weight + " kg × " + h.best.reps + " (" + P.fmtDate(h.best.date) + ")</div>" : "") + "</div></div>" +
+      T.measuresCard(s) +
       '<div class="card" style="margin-top:14px"><b>Adesão à dieta (últimos 14 dias)</b><div class="row" style="gap:4px;margin-top:10px;align-items:flex-end">' + ad.map(function (x) {
         var pct = x.t ? x.n / x.t : 0, col = pct >= 1 ? "var(--valid)" : pct > 0 ? "var(--prep)" : "var(--card2)";
         return '<div class="grow" style="text-align:center"><div title="' + P.fmtDate(x.d) + ": " + x.n + "/" + x.t + '" style="height:34px;border-radius:6px;background:' + col + '"></div><div class="small muted" style="font-size:10px">' + x.d.slice(8) + "</div></div>";
       }).join("") + '</div><div class="small muted" style="margin-top:6px">Verde: todas as refeições · Amarelo: parcial · Cinza: nada marcado</div></div>' +
       '<div class="card" style="margin-top:14px"><b>Treinos realizados</b>' + (ses.length ? '<table class="t"><tr><th>Data</th><th>Treino</th><th class="hide-m">Duração</th><th>Séries</th><th class="hide-m">Esforço</th><th class="hide-m">Observação</th></tr>' + ses.map(function (x) { return "<tr><td>" + P.fmtDate(x.date) + "</td><td>" + esc(x.workoutName) + '</td><td class="hide-m">' + Math.round(x.durationSec / 60) + " min</td><td>" + x.sets.length + '</td><td class="hide-m">' + (x.effort || "—") + '</td><td class="hide-m small">' + esc(x.note || "") + "</td></tr>"; }).join("") + "</table>" : '<div class="empty">Nenhum treino registrado.</div>') + "</div>" +
       '<div class="card" style="margin-top:14px"><b>Observações da dieta enviadas pelo aluno</b>' + (l.mealNotes.length ? l.mealNotes.slice().reverse().map(function (n) { return '<div class="list-item small"><span class="grow"><b>' + P.fmtDate(n.date) + (n.mealName ? " · " + esc(n.mealName) : "") + "</b><div>" + esc(n.text) + "</div></span>" + (n.photo ? '<button class="ph" data-act="viewPhoto" data-ref="' + esc(n.photo) + '" style="width:60px;background-image:url(' + P.photo(n.photo) + ')"></button>' : "") + "</div>"; }).join("") : '<div class="empty">Nenhuma observação.</div>') + "</div>";
+  };
+  /* Medidas do check-in mensal (perguntas de número do questionário mensal) */
+  T.measuresCard = function (s) {
+    var qs = P.qList("mensal").filter(function (q) { return q.type === "number" || q.type === "text"; });
+    var list = P.logsOf(s.id).checkins.filter(function (c) { return c.kind === "mensal"; });
+    return '<div class="card" style="margin-top:14px;overflow-x:auto"><b>Medidas (check-in mensal)</b>' + (list.length && qs.length ? '<table class="t" style="margin-top:6px"><tr><th>Medida</th>' + list.map(function (c) { return "<th>" + P.fmtDate(c.date) + "</th>"; }).join("") + "</tr>" +
+      qs.map(function (q) { var prev = null; return "<tr><td>" + esc(q.text) + (q.unit ? ' <span class="muted">(' + esc(q.unit) + ")</span>" : "") + "</td>" + list.map(function (c) { var a = c.answers[q.id], d = (typeof a === "number" && typeof prev === "number") ? Math.round((a - prev) * 10) / 10 : null; if (typeof a === "number") prev = a; return "<td><b>" + (a == null || a === "" ? "—" : esc(a)) + "</b>" + (d ? ' <span class="small" style="color:' + (d < 0 ? "var(--valid)" : "var(--warm)") + '">' + (d > 0 ? "+" : "") + d + "</span>" : "") + "</td>"; }).join("") + "</tr>"; }).join("") + "</table>" : '<div class="empty">Ainda sem check-in mensal.</div>') + "</div>";
   };
   T.actions.progEx = function (el) { T._progEx = el.value; T.render(); };
 
@@ -269,18 +278,38 @@
   };
 
   /* ---------- Questionário ---------- */
+  T.qArr = function () { var k = T._qKind === "mensal" ? "questionnaireMonthly" : "questionnaire"; if (!P.db[k]) P.db[k] = []; return P.db[k]; };
   T.pages.questionario = function () {
-    var types = [["scale", "Escala 1 a 5"], ["choice", "Múltipla escolha"], ["number", "Número"], ["text", "Texto livre"]];
-    return '<div class="row between wrap"><div><div class="page-title">Questionário de check-in</div><div class="muted">Perguntas que o aluno responde no app.</div></div><button class="btn primary" data-act="addQ">+ Nova pergunta</button></div><div class="stack" style="margin-top:16px">' + P.db.questionnaire.map(function (q, i) {
-      return '<div class="card stack"><div class="row"><b class="muted">' + (i + 1) + '.</b><input class="grow" value="' + esc(q.text) + '" data-change="qField" data-i="' + i + '" data-k="text"><button class="icon-btn" data-act="moveQ" data-i="' + i + '" data-d="-1">↑</button><button class="icon-btn" data-act="moveQ" data-i="' + i + '" data-d="1">↓</button><button class="icon-btn" style="color:var(--danger)" data-act="delQ" data-i="' + i + '">×</button></div>' +
+    var types = [["scale", "Escala 1 a 5"], ["choice", "Múltipla escolha"], ["number", "Número"], ["text", "Texto livre"], ["info", "Só aviso (sem resposta)"]];
+    var mensal = T._qKind === "mensal";
+    return '<div class="row between wrap"><div><div class="page-title">Questionários de check-in</div><div class="muted">Perguntas que o aluno responde no app.</div></div><button class="btn primary" data-act="addQ">+ Nova pergunta</button></div>' +
+      '<div class="subtabs"><button class="' + (mensal ? "" : "on") + '" data-act="qKind" data-k="semanal">📋 Semanal</button><button class="' + (mensal ? "on" : "") + '" data-act="qKind" data-k="mensal">📏 Mensal (medidas + fotos)</button></div>' +
+      '<div class="small muted">' + (mensal ? "O mensal sempre pede fotos (mínimo nas Configurações). Use Número com unidade cm para as medidas: elas viram uma tabela na ficha do aluno." : "O semanal pede fotos só se estiver ligado nas Configurações.") + '</div><div class="stack" style="margin-top:16px">' + T.qArr().map(function (q, i) {
+      return '<div class="card stack"><div class="row"><b class="muted grow">' + (i + 1) + '.</b><button class="icon-btn" data-act="moveQ" data-i="' + i + '" data-d="-1">↑</button><button class="icon-btn" data-act="moveQ" data-i="' + i + '" data-d="1">↓</button><button class="icon-btn" style="color:var(--danger)" data-act="delQ" data-i="' + i + '">×</button></div>' +
+        '<textarea rows="' + (q.text.length > 70 ? 3 : 2) + '" data-change="qField" data-i="' + i + '" data-k="text">' + esc(q.text) + "</textarea>" +
         '<div class="row wrap"><select style="width:auto" data-change="qField" data-i="' + i + '" data-k="type">' + types.map(function (t) { return '<option value="' + t[0] + '"' + (q.type === t[0] ? " selected" : "") + ">" + t[1] + "</option>"; }).join("") + "</select>" +
-        (q.type === "choice" ? '<input class="grow" placeholder="Opções separadas por vírgula" value="' + esc((q.options || []).join(", ")) + '" data-change="qField" data-i="' + i + '" data-k="options">' : "") + (q.type === "number" ? '<input style="width:120px" placeholder="unidade (kg)" value="' + esc(q.unit || "") + '" data-change="qField" data-i="' + i + '" data-k="unit">' : "") + "</div></div>";
+        (q.type === "choice" ? '<textarea style="width:100%" rows="' + Math.max(3, (q.options || []).length) + '" placeholder="Opções, uma por linha" data-change="qField" data-i="' + i + '" data-k="options">' + esc((q.options || []).join("\n")) + "</textarea>" : "") + (q.type === "number" ? '<input style="width:120px" placeholder="unidade (kg, cm)" value="' + esc(q.unit || "") + '" data-change="qField" data-i="' + i + '" data-k="unit">' : "") +
+        '<label class="btn sm">🖼️ ' + (q.img ? "Trocar imagem" : "Imagem (opcional)") + '<input type="file" accept="image/*" hidden data-change="qImg" data-i="' + i + '"></label>' + (q.img ? '<button class="btn sm danger" data-act="qImgDel" data-i="' + i + '">Tirar imagem</button>' : "") + "</div>" +
+        (q.img ? '<img src="' + q.img + '" alt="" style="max-width:260px;border-radius:10px;background:#fff">' : "") + "</div>";
     }).join("") + "</div>";
   };
-  T.actions.addQ = function () { P.db.questionnaire.push({ id: P.uid("q"), text: "Nova pergunta", type: "scale" }); P.save(); T.render(); };
-  T.actions.qField = function (el) { var q = P.db.questionnaire[el.dataset.i]; q[el.dataset.k] = el.dataset.k === "options" ? el.value.split(",").map(function (s) { return s.trim(); }).filter(Boolean) : el.value; P.save(); if (el.dataset.k === "type") T.render(); else T.toast("Salvo"); };
-  T.actions.moveQ = function (el) { var a = P.db.questionnaire, i = +el.dataset.i, j = i + +el.dataset.d; if (j < 0 || j >= a.length) return; a.splice(j, 0, a.splice(i, 1)[0]); P.save(); T.render(); };
-  T.actions.delQ = function (el) { P.db.questionnaire.splice(+el.dataset.i, 1); P.save(); T.render(); };
+  T.actions.qKind = function (el) { T._qKind = el.dataset.k; T.render(); };
+  T.actions.addQ = function () { var m = T._qKind === "mensal", q = { id: P.uid("q"), text: "Nova pergunta", type: m ? "number" : "scale" }; if (m) q.unit = "cm"; T.qArr().push(q); P.save(); T.render(); };
+  T.actions.qField = function (el) { var q = T.qArr()[el.dataset.i]; q[el.dataset.k] = el.dataset.k === "options" ? el.value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean) : el.value; P.save(); if (el.dataset.k === "type") T.render(); else T.toast("Salvo"); };
+  T.actions.moveQ = function (el) { var a = T.qArr(), i = +el.dataset.i, j = i + +el.dataset.d; if (j < 0 || j >= a.length) return; a.splice(j, 0, a.splice(i, 1)[0]); P.save(); T.render(); };
+  T.actions.delQ = function (el) { if (!confirm("Apagar esta pergunta?")) return; T.qArr().splice(+el.dataset.i, 1); P.save(); T.render(); };
+  T.actions.qImg = function (el) {
+    var f = el.files[0]; if (!f) return;
+    var r = new FileReader(); r.onload = function () {
+      var img = new Image(); img.onload = function () {
+        var sc = Math.min(1, 900 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+        c.width = img.width * sc; c.height = img.height * sc; var x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+        var q = 0.8, url = c.toDataURL("image/jpeg", q); while (url.length > 160000 && q > 0.3) { q -= 0.1; url = c.toDataURL("image/jpeg", q); }
+        T.qArr()[el.dataset.i].img = url; P.save(); T.render(); T.toast("Imagem salva.");
+      }; img.src = r.result;
+    }; r.readAsDataURL(f);
+  };
+  T.actions.qImgDel = function (el) { delete T.qArr()[el.dataset.i].img; P.save(); T.render(); };
 
   /* ---------- Materiais ---------- */
   T.pages.materiais = function () {
@@ -308,6 +337,7 @@
     return '<div class="page-title">Configurações</div><div class="card" style="margin-top:16px;padding-top:2px;padding-bottom:2px"><div class="list">' +
       tg("askEffortOnFinish", "Pedir esforço e observação ao finalizar treino", "O aluno dá uma nota de 1 a 10 e pode deixar um recado.") +
       tg("allowUnitChange", "Aluno pode trocar a unidade de medida", "Ex: ver 150 g de arroz como 10 colheres de sopa.") +
+      tg("weeklyPhotos", "Pedir fotos também no check-in semanal", "Desligado: fotos só no check-in mensal.") +
       '<div class="list-item"><span class="grow"><b>Mínimo de fotos no check-in</b><div class="small muted">O app não deixa enviar com menos fotos.</div></span><input type="number" min="0" max="3" style="width:80px" value="' + (c.minPhotos || 0) + '" data-change="cfgMin"></div></div></div>';
   };
   T.actions.cfgToggle = function (el) { P.db.settings[el.dataset.k] = !P.db.settings[el.dataset.k]; P.save(); T.render(); };
