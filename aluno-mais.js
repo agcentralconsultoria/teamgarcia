@@ -8,7 +8,7 @@
   function fmtG(n) { return P.round1(n).toString().replace(".", ","); }
   function unitLabel(fi, foodId, grams) {
     var f = P.food(foodId), pref = A.unitPref[fi.id];
-    if (pref && P.db.settings.allowUnitChange) {
+    if (pref && A.unitOk()) {
       var u = (f.units || []).filter(function (x) { return x.name === pref; })[0];
       if (u) return fmtG(grams / u.g) + " " + u.name.toLowerCase() + "(s)";
     }
@@ -94,7 +94,7 @@
       (meal.options.length > 1 ? '<div class="tabs">' + meal.options.map(function (o, i) { return '<button class="' + (i === oi ? "on" : "") + '" data-act="mealOpt" data-i="' + i + '">Opção ' + (i + 1) + "</button>"; }).join("") + "</div>" : "") +
       '<div class="card" style="padding-top:2px;padding-bottom:2px"><div class="list">' + opt.items.map(function (fi) {
         var f = P.food(fi.foodId), open = A._openSubs[fi.id];
-        var row = '<div><div class="food"><div class="grow"><b>' + esc(f.name) + "</b>" + (fi.subs && fi.subs.length ? '<div><button class="small" style="color:var(--accent);padding:2px 0" data-act="toggleSubs" data-id="' + fi.id + '">' + (open ? "Ocultar" : "Ver " + fi.subs.length) + " substituições " + (open ? "▲" : "▼") + "</button></div>" : "") + '</div><button class="qty" data-act="unit" data-fi="' + fi.id + '" data-food="' + fi.foodId + '" data-g="' + fi.grams + '">' + unitLabel(fi, fi.foodId, fi.grams) + (P.db.settings.allowUnitChange ? " ▾" : "") + "</button></div>";
+        var row = '<div><div class="food"><div class="grow"><b>' + esc(f.name) + "</b>" + (fi.subs && fi.subs.length ? '<div><button class="small" style="color:var(--accent);padding:2px 0" data-act="toggleSubs" data-id="' + fi.id + '">' + (open ? "Ocultar" : "Ver " + fi.subs.length) + " substituições " + (open ? "▲" : "▼") + "</button></div>" : "") + '</div><button class="qty" data-act="unit" data-fi="' + fi.id + '" data-food="' + fi.foodId + '" data-g="' + fi.grams + '">' + unitLabel(fi, fi.foodId, fi.grams) + (A.unitOk() ? " ▾" : "") + "</button></div>";
         if (open) row += '<div class="subs">' + fi.subs.map(function (sid) {
           var g = P.subGrams(fi.foodId, fi.grams, sid); return '<div class="food small"><span class="grow">' + esc(P.food(sid).name) + '</span><span class="qty">' + g + " g</span></div>";
         }).join("") + '<div class="small muted" style="padding-bottom:6px">Quantidades com as mesmas calorias.</div></div>';
@@ -111,7 +111,7 @@
     P.save(); A.render();
   };
   A.actions.unit = function (el) {
-    if (!P.db.settings.allowUnitChange) return;
+    if (!A.unitOk()) return;
     var f = P.food(el.dataset.food), g = parseFloat(el.dataset.g), fiId = el.dataset.fi;
     var rows = [{ name: "", label: "Gramas", val: g + " g" }].concat((f.units || []).map(function (u) { return { name: u.name, label: u.name, val: fmtG(g / u.g) + " (" + u.g + " g cada)" }; }));
     A.sheet("Trocar unidade", '<div class="small muted" style="margin-bottom:10px">' + esc(f.name) + ": a quantidade é convertida mantendo o que foi prescrito.</div><div class=\"list\">" + rows.map(function (r) {

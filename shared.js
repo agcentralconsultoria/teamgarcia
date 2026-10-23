@@ -87,12 +87,30 @@
     return {
       groups: GROUPS, exercises: ex, techniques: techniques, foods: foods,
       questionnaire: questionnaire, questionnaireMonthly: questionnaireMonthly, materials: materials,
-      settings: { minPhotos: 3, weeklyPhotos: false, askEffortOnFinish: true, allowUnitChange: true, appName: APP_NAME }
+      settings: defaultSettings(),
+      tags: [
+        ["1 - Autônomo / Comprometido", "#22c55e"], ["2 - Oscilando / Atenção leve", "#eab308"], ["3 - Precisa de cuidado / Check-in fraco", "#f97316"],
+        ["4 - Risco de abandono", "#ef4444"], ["5 - Alta evolução / Caso de sucesso", "#3b82f6"], ["6 - Renovação próxima", "#a855f7"], ["7 - NOVO / 30 dias de Acompanhamento", "#14b8a6"]
+      ].map(function (t) { return { id: uid("tag"), name: t[0], color: t[1] }; }),
+      notices: [],
+      subTables: { foods: [], exercises: [] },
+      extraForms: []
     };
   }
 
+  function defaultSettings() {
+    return {
+      minPhotos: 3, weeklyPhotos: false, askEffortOnFinish: true, allowUnitChange: true, appName: APP_NAME,
+      pseByExercise: true, logWarmPrepLoad: true, allowSubs: true, prescribeLoad: true, showChanges: true,
+      allowStudentFiles: false, defaultWorkoutNotes: "", defaultDietNotes: "", crnImg: "",
+      recoverNoTrainDays: 7, recoverNoOpenDays: 5, ckDaysBefore: 0, ckDaysAfter: 0, scheduleEveryDays: 7
+    };
+  }
+  function blankTemplates() { return { folders: [], workouts: [], diets: [], meals: [] }; }
+
   /* ---------- Armazenamento (Firebase) ----------
      Firestore:
+       library/templates          modelos (treinos, dietas e refeições pré-definidas) — só o treinador
        library/main               bibliotecas compartilhadas + questionário + materiais + configurações (só o treinador grava)
        students/{uid}             { profile, workoutPlan, dietPlan } — uid = conta de login do aluno
        logs/{uid}                 registros do aluno (água, refeições, peso, check-ins...) + feedback do treinador
@@ -102,14 +120,14 @@
        files/{uid}                anexos que o treinador manda ao aluno
        trainers/{uid}             marca quem é o treinador (criado só pelo console)  */
   var db = null, role = null, myUid = null, loader = null;
-  var LIB_KEYS = ["groups", "exercises", "techniques", "foods", "questionnaire", "questionnaireMonthly", "materials", "settings"];
-  var LOG_KEYS = ["water", "mealsDone", "mealNotes", "weights", "checkins", "cardio", "materialsSeen", "workoutNotes"];
+  var LIB_KEYS = ["groups", "exercises", "techniques", "foods", "questionnaire", "questionnaireMonthly", "materials", "settings", "tags", "notices", "subTables", "extraForms"];
+  var LOG_KEYS = ["water", "mealsDone", "mealNotes", "weights", "checkins", "cardio", "materialsSeen", "workoutNotes", "uploads", "noticesSeen", "lastSeen", "avatar", "changesSeen", "comparisons"];
   var DEEP = { profile: 1, feedback: 1 }; // campos gravados item a item (treinador e aluno não se atropelam)
   var saved = {}, filesLoaded = {}, filesLoading = {}, photoCache = {}, photoWaiting = {};
   var timer = null, pending = 0, lastLoad = 0;
   var hooks = { onError: null, onPhoto: null };
 
-  function emptyLogs() { return { sessions: [], water: {}, mealsDone: {}, mealNotes: [], weights: [], checkins: [], cardio: [], materialsSeen: [], workoutNotes: [] }; }
+  function emptyLogs() { return { sessions: [], water: {}, mealsDone: {}, mealNotes: [], weights: [], checkins: [], cardio: [], materialsSeen: [], workoutNotes: [], uploads: [], noticesSeen: [], lastSeen: null, avatar: null, changesSeen: {}, comparisons: [] }; }
   function J(v) { return JSON.stringify(v === undefined ? null : v); }
   function clone(v) { return v === undefined ? null : JSON.parse(JSON.stringify(v)); }
   function whenFB(cb) { if (window.FB) cb(window.FB); else window.addEventListener("fb-ready", function () { cb(window.FB); }, { once: true }); }
@@ -118,7 +136,7 @@
   function studentDocs(s) {
     var out = {}, id = s.id, l = logsOf(id), ld = {}, fb = {}, years = {};
     var profile = clone(s); delete profile.id; delete profile.privateNotes; delete profile.password;
-    out["students/" + id] = { profile: profile, workoutPlan: clone(db.workoutPlans[id] || null), dietPlan: clone(db.dietPlans[id] || null) };
+    out["students/" + id] = { profile: profile, workoutPlan: clone(db.workoutPlans[id] || null), dietPlan: clone(db.dietPlans[id] || null), schedule: clone(db.schedules[id] || []), history: clone(db.histories[id] || { workout: [], diet: [] }) };
     LOG_KEYS.forEach(function (k) { ld[k] = clone(l[k]); });
     ld.checkins = (l.checkins || []).map(function (c) { var x = clone(c); if (x.feedback) fb[x.id] = x.feedback; delete x.feedback; return x; });
     ld.feedback = fb;
@@ -131,8 +149,8 @@
   }
   function buildDocs() {
     var out = {};
-    if (role === "trainer") { var lib = {}; LIB_KEYS.forEach(function (k) { lib[k] = clone(db[k]); }); out["library/main"] = lib; }
-    db.students.forEach(function (s) { var d = studentDocs(s); Object.keys(d).forEach(function (k) { out[k] = d[k]; }); });
+    if (role === "trainer") { var lib = {}; LIB_KEYS.forEach(function (k) { lib[k] = clone(db[k]); }); out["library/main"] = lib; out["library/templates"] = { templates: clone(db.templates || blankTemplates()) }; }
+    db.students.forEach(function (s) { if (s.__tpl) return; var d = studentDocs(s); Object.keys(d).forEach(function (k) { out[k] = d[k]; }); });
     return out;
   }
   function snapshot(data) { var o = {}; Object.keys(data).forEach(function (k) { o[k] = J(data[k]); }); return o; }
@@ -166,6 +184,7 @@
       }
       (l.checkins || []).forEach(function (c) { if (c.photos) c.photos = c.photos.map(take); });
       (l.mealNotes || []).forEach(function (n) { if (n.photo) n.photo = take(n.photo); });
+      (l.uploads || []).forEach(function (u) { if (u.ref) u.ref = take(u.ref); });
     });
   }
   /* Endereço de uma foto para mostrar na tela (carrega do Firebase na primeira vez). */
@@ -204,16 +223,19 @@
   function busy() { return !!timer || pending > 0; }
   window.addEventListener("pagehide", function () { if (timer) sync(); });
 
-  function blankDb() { return { students: [], workoutPlans: {}, dietPlans: {}, logs: {}, attachments: {}, notifications: [] }; }
+  function blankDb() { return { students: [], workoutPlans: {}, dietPlans: {}, logs: {}, attachments: {}, notifications: [], schedules: {}, histories: {}, templates: blankTemplates() }; }
   function applyLibrary(lib) {
-    var base = lib || seed();
-    LIB_KEYS.forEach(function (k) { db[k] = base[k] != null ? base[k] : seed()[k]; });
+    var base = lib || seed(), fresh = null;
+    LIB_KEYS.forEach(function (k) { if (base[k] != null) db[k] = base[k]; else { fresh = fresh || seed(); db[k] = fresh[k]; } });
+    var ds = defaultSettings(); Object.keys(ds).forEach(function (k) { if (db.settings[k] === undefined) db.settings[k] = ds[k]; });
   }
   function addStudent(id, sd, ld, years, notes) {
     var s = clone(sd.profile || {}); s.id = id; s.privateNotes = notes ? notes.text || "" : "";
     db.students.push(s);
     if (sd.workoutPlan) db.workoutPlans[id] = sd.workoutPlan;
     if (sd.dietPlan) db.dietPlans[id] = sd.dietPlan;
+    db.schedules[id] = sd.schedule || [];
+    db.histories[id] = sd.history || { workout: [], diet: [] };
     var l = emptyLogs();
     if (ld) {
       LOG_KEYS.forEach(function (k) { if (ld[k] != null) l[k] = ld[k]; });
@@ -225,13 +247,16 @@
 
   async function loadTrainer(FB, me) {
     if (!(await FB.get("trainers/" + me))) return "denied";
-    var r = await Promise.all([FB.get("library/main"), FB.list("students"), FB.list("logs"), FB.list("notes")]);
+    var r = await Promise.all([FB.get("library/main"), FB.list("students"), FB.list("logs"), FB.list("notes"), FB.get("library/templates")]);
     var years = await Promise.all(r[1].map(function (s) { return FB.list("logs/" + s.id + "/years"); }));
     var keepFiles = db && role === "trainer" ? { a: db.attachments, f: filesLoaded } : null;
     db = blankDb(); role = "trainer"; filesLoaded = {};
     applyLibrary(r[0]);
+    db.templates = (r[4] && r[4].templates) || blankTemplates();
+    ["folders", "workouts", "diets", "meals"].forEach(function (k) { if (!db.templates[k]) db.templates[k] = []; });
     var logs = {}, notes = {}, existing = {};
     if (r[0]) existing["library/main"] = 1;
+    if (r[4]) existing["library/templates"] = 1;
     r[2].forEach(function (d) { logs[d.id] = d.data; existing["logs/" + d.id] = 1; });
     r[3].forEach(function (d) { notes[d.id] = d.data; existing["notes/" + d.id] = 1; });
     r[1].forEach(function (d, i) {
@@ -242,7 +267,10 @@
     db.students.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
     if (keepFiles) Object.keys(keepFiles.f).forEach(function (id) { if (keepFiles.f[id]) { db.attachments[id] = keepFiles.a[id]; filesLoaded[id] = true; existing["files/" + id] = 1; } });
     markSaved(existing);
-    if (!r[0]) save(); // primeira vez: grava as bibliotecas iniciais
+    // Campos novos da biblioteca (ex.: etiquetas) ainda não existem no servidor: grava o documento inteiro uma vez.
+    var ds = defaultSettings();
+    if (r[0] && (LIB_KEYS.some(function (k) { return r[0][k] == null; }) || Object.keys(ds).some(function (k) { return !r[0].settings || r[0].settings[k] === undefined; }))) delete saved["library/main"];
+    save(); // grava bibliotecas novas/campos novos (só o que mudou)
     return "ready";
   }
   async function loadStudent(FB, me) {
@@ -323,7 +351,111 @@
   function technique(id) { return db.techniques.filter(function (t) { return t.id === id; })[0]; }
   function food(id) { return db.foods.filter(function (f) { return f.id === id; })[0] || { name: "(alimento removido)", kcal: 0, p: 0, c: 0, g: 0, fib: 0, units: [] }; }
   /* Questionário do check-in: "mensal" (medidas + fotos) ou semanal (padrão) */
-  function qList(kind) { return (kind === "mensal" ? db.questionnaireMonthly : db.questionnaire) || []; }
+  function qList(kind) {
+    if (kind === "mensal") return db.questionnaireMonthly || [];
+    if (kind === "fotos") return [];
+    var x = (db.extraForms || []).filter(function (f) { return f.id === kind; })[0];
+    return x ? x.questions || [] : db.questionnaire || [];
+  }
+  /* Todos os questionários: os dois fixos + os criados pelo treinador */
+  function forms() {
+    return [{ id: "semanal", name: "Check-in semanal" }, { id: "mensal", name: "Check-in mensal (medidas)" }].concat((db.extraForms || []).map(function (f) { return { id: f.id, name: f.name }; }));
+  }
+  function formName(kind) { if (kind === "fotos") return "Fotos"; var f = forms().filter(function (x) { return x.id === (kind || "semanal"); })[0]; return f ? f.name : "Questionário"; }
+
+  /* ---------- Atualizações programadas (check-ins agendados pelo treinador) ----------
+     item: { id, date, photos, forms: [ids], status: "pendente"|"cancelada", repeatDays, createdAt } */
+  function scheduleOf(id) { if (!db.schedules[id]) db.schedules[id] = []; return db.schedules[id]; }
+  function schedStatus(id, it) {
+    if (it.status === "cancelada") return "cancelada";
+    var ans = logsOf(id).checkins.filter(function (c) { return c.scheduleId === it.id; });
+    var need = (it.forms || []).length + (it.photos ? 1 : 0);
+    var got = (it.forms || []).filter(function (f) { return ans.some(function (c) { return (c.kind || "semanal") === f; }); }).length +
+      (it.photos && ans.some(function (c) { return c.photos && c.photos.filter(Boolean).length; }) ? 1 : 0);
+    if (need && got >= need) return "respondida";
+    return got ? "parcial" : "pendente";
+  }
+  function answeredAt(id, it) { var a = logsOf(id).checkins.filter(function (c) { return c.scheduleId === it.id; }); return a.length ? a[a.length - 1].date : null; }
+  /* Próxima atualização em aberto (a mais antiga ainda não respondida) */
+  function nextPending(id) {
+    return scheduleOf(id).filter(function (it) { var s = schedStatus(id, it); return s === "pendente" || s === "parcial"; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : 1; })[0] || null;
+  }
+  /* Janela para responder (configuração: dias antes/depois). Retorna "" se pode, ou o motivo. */
+  function windowBlock(it) {
+    var st = db.settings, t = todayISO();
+    if (st.ckDaysBefore > 0 && t < addDays(it.date, -st.ckDaysBefore)) return "Liberado a partir de " + fmtDate(addDays(it.date, -st.ckDaysBefore)) + ".";
+    if (st.ckDaysAfter > 0 && t > addDays(it.date, st.ckDaysAfter)) return "O prazo desta atualização terminou. Fale com seu treinador.";
+    return "";
+  }
+
+  /* ---------- O que mudou na ficha ---------- */
+  function workoutChanges(a, b) {
+    var out = []; if (!a) return ["Ficha de treino criada (" + (b.workouts || []).length + " treinos)."];
+    var aw = {}; (a.workouts || []).forEach(function (w) { aw[w.id] = w; });
+    (b.workouts || []).forEach(function (w) {
+      var o = aw[w.id]; if (!o) { out.push("Novo treino: " + w.name + "."); return; }
+      if (o.name !== w.name) out.push(o.name + " agora se chama " + w.name + ".");
+      var oi = {}; o.items.forEach(function (it) { oi[it.id] = it; });
+      w.items.forEach(function (it) {
+        var x = oi[it.id], n = exercise(it.exId).name;
+        if (!x) { out.push(w.name + ": entrou " + n + "."); return; }
+        if (x.exId !== it.exId) out.push(w.name + ": " + exercise(x.exId).name + " trocado por " + n + ".");
+        if ((x.valid.sets || 0) !== (it.valid.sets || 0)) out.push(w.name + " · " + n + ": " + (x.valid.sets || 0) + " → " + (it.valid.sets || 0) + " séries válidas.");
+        if (JSON.stringify(x.valid.reps) !== JSON.stringify(it.valid.reps)) out.push(w.name + " · " + n + ": repetições " + (it.valid.reps || []).join(", ") + ".");
+        if (x.valid.rest !== it.valid.rest) out.push(w.name + " · " + n + ": intervalo " + it.valid.rest + ".");
+        if ((x.techniqueId || "") !== (it.techniqueId || "")) { var t = technique(it.techniqueId); out.push(w.name + " · " + n + ": " + (t ? "técnica " + t.name : "sem técnica") + "."); }
+        if ((x.notes || "") !== (it.notes || "")) out.push(w.name + " · " + n + ": observação atualizada.");
+        delete oi[it.id];
+      });
+      Object.keys(oi).forEach(function (k) { out.push(w.name + ": saiu " + exercise(oi[k].exId).name + "."); });
+      delete aw[w.id];
+    });
+    Object.keys(aw).forEach(function (k) { out.push("Treino removido: " + aw[k].name + "."); });
+    if ((a.notes || "") !== (b.notes || "")) out.push("Observações gerais do treino atualizadas.");
+    if (a.cardio && b.cardio && JSON.stringify(a.cardio) !== JSON.stringify(b.cardio)) out.push("Cardio atualizado.");
+    return out;
+  }
+  function dietChanges(a, b) {
+    var out = []; if (!a) return ["Dieta criada."];
+    var av = {}; (a.variations || []).forEach(function (v) { av[v.id] = v; });
+    (b.variations || []).forEach(function (v) {
+      var o = av[v.id]; if (!o) { out.push("Nova variação: " + v.name + "."); return; }
+      var om = {}; o.meals.forEach(function (m) { om[m.id] = m; });
+      v.meals.forEach(function (m) {
+        var x = om[m.id]; if (!x) { out.push("Nova refeição: " + m.name + "."); return; }
+        if (x.time !== m.time) out.push(m.name + ": horário " + m.time + ".");
+        if (JSON.stringify(x.options) !== JSON.stringify(m.options)) out.push(m.name + ": alimentos/quantidades alterados.");
+        delete om[m.id];
+      });
+      Object.keys(om).forEach(function (k) { out.push("Refeição removida: " + om[k].name + "."); });
+      var ka = Math.round(variationMacros(o).kcal), kb = Math.round(variationMacros(v).kcal);
+      if (ka !== kb) out.push(v.name + ": " + ka + " → " + kb + " kcal.");
+      delete av[v.id];
+    });
+    Object.keys(av).forEach(function (k) { out.push("Variação removida: " + av[k].name + "."); });
+    if ((a.notes || "") !== (b.notes || "") || (a.guidelines || "") !== (b.guidelines || "")) out.push("Observações/orientações da dieta atualizadas.");
+    return out;
+  }
+
+  /* Avisos (notificações do treinador) que valem para um aluno */
+  function noticesFor(s) {
+    var now = new Date().toISOString().slice(0, 16), tags = s.tags || [];
+    var out = [];
+    (db.notices || []).forEach(function (n) {
+      var to = n.to || { all: true };
+      var ok = to.all || (to.ids || []).indexOf(s.id) >= 0 || (to.tags || []).some(function (t) { return tags.indexOf(t) >= 0; });
+      if (!ok) return;
+      if (n.recur && n.recur.every) {
+        // recorrente: aparece a cada N dias a partir do início
+        var start = new Date(n.sendAt), cur = new Date(), k = Math.floor((cur - start) / (n.recur.every * 864e5));
+        if (k < 0) return;
+        var at = new Date(start.getTime() + k * n.recur.every * 864e5).toISOString().slice(0, 16);
+        out.push({ id: n.id + "@" + k, title: n.title, desc: n.desc, at: at });
+      } else if (!n.sendAt || n.sendAt <= now) out.push({ id: n.id, title: n.title, desc: n.desc, at: n.sendAt || n.createdAt });
+    });
+    return out.sort(function (a, b) { return a.at < b.at ? 1 : -1; });
+  }
   function student(id) { return db.students.filter(function (s) { return s.id === id; })[0]; }
   function logsOf(id) {
     if (!db.logs[id]) db.logs[id] = emptyLogs();
@@ -371,7 +503,7 @@
   function lastSetsFor(studentId, exId) {
     var ses = logsOf(studentId).sessions.slice().sort(function (a, b) { return b.date < a.date ? -1 : 1; });
     for (var i = 0; i < ses.length; i++) {
-      var s = ses[i].sets.filter(function (x) { return x.exId === exId && x.type === "valid"; });
+      var s = ses[i].sets.filter(function (x) { return x.exId === exId && x.type === "valid" && x.weight != null; });
       if (s.length) return { date: ses[i].date, sets: s };
     }
     return null;
@@ -382,7 +514,7 @@
       var s = ses.sets.filter(function (x) { return x.exId === exId; });
       if (!s.length) return;
       out.push({ date: ses.date, sets: s });
-      s.forEach(function (x) { if (!best || x.weight > best.weight || (x.weight === best.weight && x.reps > best.reps)) best = { weight: x.weight, reps: x.reps, date: ses.date }; });
+      s.forEach(function (x) { if (x.weight == null) return; if (!best || x.weight > best.weight || (x.weight === best.weight && x.reps > best.reps)) best = { weight: x.weight, reps: x.reps, date: ses.date }; });
     });
     return { list: out, best: best };
   }
@@ -420,7 +552,9 @@
     get db() { return db; }, get role() { return role; }, get myUid() { return myUid; },
     photo: photo, ensureFiles: ensureFiles, createStudent: createStudent, authError: authError, waLink: waLink,
     uid: uid, todayISO: todayISO, addDays: addDays, fmtDate: fmtDate, esc: esc, round1: round1,
-    exercise: exercise, technique: technique, qList: qList, food: food, student: student, logsOf: logsOf,
+    exercise: exercise, technique: technique, qList: qList, forms: forms, formName: formName,
+    scheduleOf: scheduleOf, schedStatus: schedStatus, answeredAt: answeredAt, nextPending: nextPending, windowBlock: windowBlock,
+    workoutChanges: workoutChanges, dietChanges: dietChanges, noticesFor: noticesFor, blankTemplates: blankTemplates, food: food, student: student, logsOf: logsOf,
     macrosOf: macrosOf, sumMacros: sumMacros, optionMacros: optionMacros, variationMacros: variationMacros,
     subGrams: subGrams, variationForDay: variationForDay, parseRestRange: parseRestRange, fmtSec: fmtSec,
     volumeByGroup: volumeByGroup, lastSetsFor: lastSetsFor, exerciseHistory: exerciseHistory,

@@ -6,7 +6,7 @@
 <title>TeamGarcia · Treinador</title>
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261023">
 <style>
   .layout { display: flex; min-height: 100vh; }
   body.nologin .side, body.nologin .mobile-top { display: none !important; }
@@ -46,6 +46,23 @@
   .multi { max-height: 150px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
   .multi label { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 3px 0; }
   .multi input { width: auto; }
+  .kan { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; }
+  .kan-col { flex: 0 0 260px; background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+  .kan-col h4 { margin: 0 0 8px; font-size: 13px; display: flex; gap: 6px; align-items: center; }
+  .kan-card { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; margin-bottom: 8px; }
+  .tagp { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; margin: 2px 3px 0 0; }
+  .calm { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .calm .h { text-align: center; font-size: 11px; color: var(--muted); font-weight: 700; padding: 4px 0; }
+  .calm .d { min-height: 70px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 4px; font-size: 11px; text-align: left; cursor: pointer; }
+  .calm .d.out { opacity: .3; }
+  .calm .d.today { border-color: var(--accent); }
+  .calm .d .ev { display: block; border-radius: 4px; padding: 1px 4px; margin-top: 2px; color: #fff; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .adh { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 12px; }
+  .adh span { padding: 8px 0; border-radius: 8px; background: var(--card2); }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cmp img { width: 100%; border-radius: 12px; }
+  .chg { border-left: 3px solid var(--accent); padding: 4px 10px; margin: 6px 0; }
   @media (max-width: 860px) {
     .side { position: fixed; left: -260px; top: 0; z-index: 40; transition: left .2s; box-shadow: var(--shadow); width: 240px; }
     .side.open { left: 0; }
@@ -53,6 +70,10 @@
     .main { padding: 16px 16px 60px; }
     .grid2 { grid-template-columns: 1fr; }
     table.t .hide-m { display: none; }
+    .kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .kpi b { font-size: 22px; }
+    .calm .d { min-height: 46px; font-size: 10px; padding: 2px; }
+    .calm .d .ev { font-size: 0; height: 6px; padding: 0; }
   }
 </style>
 </head>
@@ -60,9 +81,11 @@
 <div class="mobile-top"><button class="icon-btn" data-act="menu">☰</button><b>TeamGarcia · Treinador</b></div>
 <div class="layout"><aside class="side" id="side"></aside><main class="main" id="main"></main></div>
 <div id="modal"></div>
-<script src="shared.js"></script>
-<script src="tr-core.js"></script>
-<script src="tr-editores.js"></script>
-<script type="module" src="fb.js"></script>
+<script src="shared.js?v=20261023"></script>
+<script src="tr-core.js?v=20261023"></script>
+<script src="tr-editores.js?v=20261023"></script>
+<script src="tr-extra.js?v=20261023"></script>
+<script src="tr-paginas.js?v=20261023"></script>
+<script type="module" src="fb.js?v=20261023"></script>
 </body>
 </html>

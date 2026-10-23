@@ -36,16 +36,17 @@
     if (A.state !== "ready" || !A.uid || !A.me()) { root.innerHTML = A.state === "login" ? A.views.login() : A.views.status(); return; }
     var c = A.cur(), fn = A.views[c.v] || A.views.home;
     var showNav = c.v !== "exec";
-    root.innerHTML = fn(c.p) + (showNav ? navHtml() : "");
+    root.innerHTML = fn(c.p) + (showNav ? A.navHtml() : "");
     if (A.after && A.after[c.v]) A.after[c.v](c.p);
     if (scrollTop) window.scrollTo(0, 0);
   };
-  function navHtml() {
-    var items = [["home", "Início"], ["treinos", "Treino"], ["dieta", "Dieta"], ["evo", "Evolução"]];
+  A.navHtml = function () {
+    var pl = (A.me() && A.me().plans) || { treino: true, dieta: true };
+    var items = [["home", "Início"], ["treinos", "Treino"], ["dieta", "Dieta"], ["evo", "Evolução"]].filter(function (i) { return (i[0] !== "treinos" || pl.treino !== false) && (i[0] !== "dieta" || pl.dieta !== false); });
     return '<nav class="nav"><div class="nav-in">' + items.map(function (i) {
       return '<button data-act="tab" data-v="' + i[0] + '" class="' + (A.tabRoot === i[0] ? "on" : "") + '">' + ICONS[i[0]] + i[1] + "</button>";
     }).join("") + "</div></nav>";
-  }
+  };
   A.top = function (title, right) {
     return '<div class="top"><button class="back" data-act="back">‹ Voltar</button><div class="grow" style="text-align:center;font-weight:700">' + esc(title || "") + '</div><div style="min-width:60px;text-align:right">' + (right || "") + "</div></div>";
   };
@@ -208,7 +209,9 @@
       var lastTxt = last ? last.sets[0].weight + " kg · " + last.sets[0].reps + " reps" : "";
       return '<div class="ex-row"><div class="ex-num">' + (i + 1) + '</div><div class="grow"><div class="row" style="gap:8px"><b>' + esc(ex.name) + '</b><button class="play" data-act="video" data-ex="' + it.exId + '">▶</button></div>' +
         '<div class="series" style="margin-top:4px">' + A.seriesLine(it) + "<span>· " + esc((it.valid.reps || []).join(", ")) + " reps</span></div>" +
-        (tec ? '<div style="margin-top:6px"><span class="pill" style="color:' + tec.color + ";border-color:" + tec.color + '55">' + esc(tec.name) + "</span></div>" : "") +
+        (tec ? '<div style="margin-top:6px"><span class="pill" style="color:' + tec.color + ";border-color:" + tec.color + '55">' + esc(tec.name) + (it.techniqueSets && it.techniqueSets.length ? " (" + it.techniqueSets.map(function (k) { return (k + 1) + "ª"; }).join(", ") + ")" : "") + "</span></div>" : "") +
+        (it.valid.load ? '<div class="small" style="margin-top:4px">🎯 Carga sugerida: <b>' + esc(it.valid.load) + " kg</b></div>" : "") +
+        (it.superset && w.items[i + 1] ? '<div class="small" style="margin-top:4px;color:var(--purple)">⇅ Superset com ' + esc(P.exercise(w.items[i + 1].exId).name) + "</div>" : "") +
         "</div>" + (lastTxt ? '<button class="qty" data-act="history" data-ex="' + it.exId + '">' + lastTxt + "</button>" : "") + "</div>";
     }).join("") + "</div></div>";
     html += "</div>";
@@ -234,7 +237,7 @@
       '<div class="row between" style="margin:14px 0 6px"><b>Últimas execuções</b><span class="small muted">' + h.list.length + " treinos</span></div>" +
       (h.list.length ? h.list.slice(0, 8).map(function (s) {
         return '<div class="card tight" style="margin-bottom:8px"><b class="small">📅 ' + P.fmtDate(s.date) + '</b><table class="hist"><tr><th>Série</th><th>Carga</th><th style="text-align:right">Reps</th></tr>' + s.sets.map(function (x) {
-          return "<tr><td>" + (x.type === "warm" ? '<i class="dot warm"></i> ' : x.type === "prep" ? '<i class="dot prep"></i> ' : '<i class="dot valid"></i> ') + (x.idx + 1) + "ª</td><td>" + x.weight + ' kg</td><td style="text-align:right">' + x.reps + "</td></tr>";
+          return "<tr><td>" + (x.type === "warm" ? '<i class="dot warm"></i> ' : x.type === "prep" ? '<i class="dot prep"></i> ' : '<i class="dot valid"></i> ') + (x.idx + 1) + "ª</td><td>" + (x.weight != null ? x.weight + " kg" : "—") + '</td><td style="text-align:right">' + x.reps + "</td></tr>";
         }).join("") + "</table></div>";
       }).join("") : '<div class="empty">Nenhum registro ainda.</div>');
     A.sheet(ex.name, '<div class="small muted" style="margin-top:-8px;margin-bottom:10px">Seu desempenho</div>' + body);
@@ -262,7 +265,11 @@
     var tec = P.technique(it.techniqueId), last = P.lastSetsFor(A.uid, it.exId);
     var rec = A.active.done[cur.key] || {};
     var lastSet = last && last.sets.filter(function (s) { return s.idx === cur.idx; })[0];
-    var wVal = rec.weight != null ? rec.weight : lastSet ? lastSet.weight : "";
+    var wVal = rec.weight != null ? rec.weight : lastSet ? lastSet.weight : (cur.type === "valid" && it.valid.load ? parseFloat(it.valid.load) || "" : "");
+    var cfg = P.db.settings, needLoad = cur.type === "valid" || cfg.logWarmPrepLoad !== false;
+    var tecHere = tec && cur.type === "valid" && (!(it.techniqueSets && it.techniqueSets.length) || it.techniqueSets.indexOf(cur.idx) >= 0);
+    A.active.exDone = A.active.exDone || {};
+    var nextIt = w.items[A.active.itemIdx + 1], prevIt = w.items[A.active.itemIdx - 1];
     var rVal = rec.reps != null ? rec.reps : lastSet ? lastSet.reps : "";
     var r = P.parseRestRange(cur.rest);
     var t = A.active.timer || { mode: "timer", dur: r.min, running: false, endAt: 0, startAt: 0 };
@@ -270,27 +277,31 @@
     var html = '<div class="top"><button class="back" data-act="back">‹ Voltar</button><div class="exec-head"><div class="small muted">Tempo total</div><div class="exec-time" id="totalTime">' + P.fmtSec((Date.now() - A.active.start) / 1000) + '</div></div><button class="btn sm danger ghost" data-act="cancelWorkout">Cancelar</button></div>' +
       '<div class="screen stack" style="padding-bottom:30px">' +
       '<div class="row between"><button class="btn sm" data-act="exNav" data-d="-1"' + (A.active.itemIdx === 0 ? " disabled" : "") + '>‹</button><div style="text-align:center" class="grow"><div class="small muted">Exercício ' + (A.active.itemIdx + 1) + " de " + w.items.length + '</div><div class="title-lg">' + esc(ex.name) + '</div></div><button class="btn sm" data-act="exNav" data-d="1"' + (A.active.itemIdx === w.items.length - 1 ? " disabled" : "") + ">›</button></div>" +
-      '<div class="row" style="justify-content:center;gap:8px"><button class="btn sm" data-act="video" data-ex="' + it.exId + '">▶ Vídeo</button><button class="btn sm" data-act="history" data-ex="' + it.exId + '">Histórico</button>' + (it.subs && it.subs.length ? '<button class="btn sm" data-act="swapEx">Trocar</button>' : "") + "</div>" +
+      '<div class="row" style="justify-content:center;gap:8px"><button class="btn sm" data-act="video" data-ex="' + it.exId + '">▶ Vídeo</button><button class="btn sm" data-act="history" data-ex="' + it.exId + '">Histórico</button>' + (it.subs && it.subs.length && cfg.allowSubs !== false ? '<button class="btn sm" data-act="swapEx">Trocar</button>' : "") + "</div>" +
+      (it.superset && nextIt ? '<div class="card tight small" style="border-color:var(--purple)">⇅ <b>Superset</b> com <b>' + esc(P.exercise(nextIt.exId).name) + "</b>: faça uma série aqui e já vá para o próximo, sem descanso.</div>" : "") +
+      (prevIt && prevIt.superset ? '<div class="card tight small" style="border-color:var(--purple)">⇅ <b>Superset</b> com <b>' + esc(P.exercise(prevIt.exId).name) + "</b>: descanse só depois desta série.</div>" : "") +
       '<div class="card tight small">' +
       (it.warmup.sets ? '<div><i class="dot warm"></i> Aquecimento ' + it.warmup.sets + " · reps <b>" + esc(it.warmup.reps) + "</b> · intervalo <b>" + esc(it.warmup.rest) + "</b></div>" : "") +
       (it.prep.sets ? '<div><i class="dot prep"></i> Preparatória ' + it.prep.sets + " · reps <b>" + esc(it.prep.reps) + "</b> · intervalo <b>" + esc(it.prep.rest) + "</b></div>" : "") +
       '<div><i class="dot valid"></i> Válidas ' + it.valid.sets + " · reps <b>" + esc((it.valid.reps || []).join(" / ")) + "</b> · intervalo <b>" + esc(it.valid.rest) + "</b>" + (it.rir ? " · RIR <b>" + esc(it.rir) + "</b>" : "") + "</div>" +
+      (it.valid.load ? '<div style="margin-top:4px">🎯 Carga sugerida: <b>' + esc(it.valid.load) + " kg</b></div>" : "") +
       (it.notes ? '<div class="muted" style="margin-top:6px">📝 ' + esc(it.notes) + "</div>" : "") + "</div>" +
+      '<label class="row" style="justify-content:center"><input type="checkbox" style="width:auto" data-change="exDone"' + (A.active.exDone[it.id] || doneCount === sets.length ? " checked" : "") + '> <b>Exercício concluído</b> <span class="small muted">· ' + doneCount + "/" + sets.length + "</span></label>" +
       '<div class="set-chips">' + sets.map(function (s) {
         var cls = "set-chip" + (s.key === cur.key ? " on" : "") + (A.active.done[s.key] ? " done" : "");
         return '<button class="' + cls + '" data-act="pickSet" data-k="' + s.key + '"><i class="dot ' + s.type + '"></i>' + s.label + (A.active.done[s.key] ? " ✓" : "") + "</button>";
       }).join("") + '</div><div class="small muted" style="text-align:center">' + doneCount + " de " + sets.length + " séries concluídas</div>" +
       '<div class="card stack"><div class="row between"><b><i class="dot ' + cur.type + '"></i> ' + typeName[cur.type] + " " + cur.label + '</b><span class="small muted">meta: ' + esc(cur.reps) + " reps</span></div>" +
-      (tec && cur.type === "valid" ? '<div class="small">Técnica nesta série: <span class="pill" style="color:' + tec.color + '">' + esc(tec.name) + "</span></div>" : "") +
-      '<div class="row"><div class="num-box grow"><div class="small muted">Peso (kg)</div><input id="inW" type="number" inputmode="decimal" step="0.5" value="' + wVal + '"><div class="row"><button class="step" data-act="stepIn" data-f="inW" data-d="-2.5">−</button><button class="step" data-act="stepIn" data-f="inW" data-d="2.5">+</button></div></div>' +
+      (tecHere ? '<div class="card tight small" style="border-color:' + tec.color + '"><div class="muted">Orientações desta série</div><span class="pill" style="color:' + tec.color + '">' + esc(tec.name) + "</span></div>" : "") +
+      '<div class="row">' + (needLoad ? '<div class="num-box grow"><div class="small muted">Peso (kg)</div><input id="inW" type="number" inputmode="decimal" step="0.5" value="' + wVal + '"><div class="row"><button class="step" data-act="stepIn" data-f="inW" data-d="-2.5">−</button><button class="step" data-act="stepIn" data-f="inW" data-d="2.5">+</button></div></div>' : "") +
       '<div class="num-box grow"><div class="small muted">Reps feitas</div><input id="inR" type="number" inputmode="numeric" value="' + rVal + '"><div class="row"><button class="step" data-act="stepIn" data-f="inR" data-d="-1">−</button><button class="step" data-act="stepIn" data-f="inR" data-d="1">+</button></div></div></div>' +
       (lastSet ? '<div class="small muted" style="text-align:center">Última vez: ' + lastSet.weight + " kg × " + lastSet.reps + " (" + P.fmtDate(last.date) + ")</div>" : "") +
       '<button class="btn primary block" data-act="doneSet">' + (A.active.done[cur.key] ? "Atualizar série" : "✓ Concluir série") + "</button></div>" +
       '<div class="card stack"><div class="tabs"><button class="' + (t.mode === "timer" ? "on" : "") + '" data-act="tMode" data-m="timer">Timer</button><button class="' + (t.mode === "crono" ? "on" : "") + '" data-act="tMode" data-m="crono">Cronômetro</button></div>' +
       '<div class="timer' + (t.running ? " run" : "") + '" id="timerTxt">' + timerText(t) + "</div>" +
       (t.mode === "timer" ? '<div class="presets">' + [["Mín", r.min], ["Méd", r.mid], ["Máx", r.max]].map(function (x) { return '<button data-act="tPreset" data-s="' + x[1] + '" class="' + (t.dur === x[1] ? "on" : "") + '">' + x[0] + "<br><b>" + P.fmtSec(x[1]) + "</b></button>"; }).join("") + "</div>" : "") +
-      '<div class="row" style="justify-content:center"><button class="btn primary" style="min-width:120px" data-act="tToggle">' + (t.running ? "Pausar" : "▶ Iniciar") + '</button><button class="btn" data-act="tReset">↺</button></div></div>' +
-      '<div class="card tight"><div class="small muted" style="margin-bottom:6px">Como foi este exercício? (esforço de 1 a 10)</div><div class="scale">' + [6, 7, 8, 9, 10].map(function (n) { return '<button data-act="pse" data-n="' + n + '" class="' + (A.active.pse[it.id] === n ? "on" : "") + '">' + n + "</button>"; }).join("") + '</div><input id="exNote" style="margin-top:8px" placeholder="Observação sobre o exercício (opcional)" value="' + esc(A.active.exNotes[it.id] || "") + '" data-change="exNote"></div>' +
+      '<div class="row" style="justify-content:center"><button class="btn primary" style="min-width:120px" data-act="tToggle">' + (t.running ? "Pausar" : "▶ Iniciar") + '</button><button class="btn" data-act="tReset">↺</button>' + (t.mode === "timer" ? '<button class="btn" title="Escolher o tempo" data-act="tEdit">✏️</button>' : "") + "</div></div>" +
+      (cfg.pseByExercise !== false ? '<div class="card tight"><div class="small muted" style="margin-bottom:6px">Como foi este exercício? (esforço de 1 a 10)</div><div class="scale">' + [6, 7, 8, 9, 10].map(function (n) { return '<button data-act="pse" data-n="' + n + '" class="' + (A.active.pse[it.id] === n ? "on" : "") + '">' + n + "</button>"; }).join("") + '</div><input id="exNote" style="margin-top:8px" placeholder="Observação sobre o exercício (opcional)" value="' + esc(A.active.exNotes[it.id] || "") + '" data-change="exNote"></div>' : "") +
       '<button class="btn block" style="padding:15px;background:var(--valid);color:#052e1c;border:0" data-act="finishWorkout">🏁 Finalizar treino</button></div>';
     A.saveActive();
     return html;
@@ -332,15 +343,20 @@
     var i = document.getElementById(el.dataset.f), v = parseFloat(i.value) || 0; i.value = Math.max(0, Math.round((v + parseFloat(el.dataset.d)) * 10) / 10);
   };
   A.actions.doneSet = function () {
-    var w = parseFloat(document.getElementById("inW").value), r = parseInt(document.getElementById("inR").value, 10);
-    if (isNaN(w) || isNaN(r)) { A.toast("Preencha peso e repetições."); return; }
-    var it = A.activeWorkout().items[A.active.itemIdx], sets = A.setList(it), cur = sets.filter(function (s) { return s.key === A.active.setKey; })[0];
-    A.active.done[cur.key] = { weight: w, reps: r, itemId: it.id, exId: it.exId, type: cur.type, idx: cur.idx };
-    var rr = P.parseRestRange(cur.rest);
-    var t = ensureTimer(); t.mode = "timer"; t.dur = t.dur && t.dur >= rr.min && t.dur <= rr.max ? t.dur : rr.min; t.running = true; t.left = null; t.endAt = Date.now() + t.dur * 1000;
+    var wEl = document.getElementById("inW"), w = wEl ? parseFloat(wEl.value) : null, r = parseInt(document.getElementById("inR").value, 10);
+    if ((wEl && isNaN(w)) || isNaN(r)) { A.toast(wEl ? "Preencha peso e repetições." : "Preencha as repetições."); return; }
+    var wk = A.activeWorkout(), it = wk.items[A.active.itemIdx], sets = A.setList(it), cur = sets.filter(function (s) { return s.key === A.active.setKey; })[0];
+    A.active.done[cur.key] = { weight: wEl ? w : null, reps: r, itemId: it.id, exId: it.exId, type: cur.type, idx: cur.idx };
     var next = sets.filter(function (s) { return !A.active.done[s.key]; })[0];
     if (next) A.active.setKey = next.key;
-    else A.toast("Exercício concluído! Avance para o próximo ›");
+    if (it.superset && wk.items[A.active.itemIdx + 1]) {
+      A.active.itemIdx++; A.active.setKey = null; A.toast("⇅ Superset: vá direto para " + P.exercise(wk.items[A.active.itemIdx].exId).name); A.render(true); return;
+    }
+    var rr = P.parseRestRange(cur.rest);
+    var t = ensureTimer(); t.mode = "timer"; t.dur = t.dur && t.dur >= rr.min && t.dur <= rr.max ? t.dur : rr.min; t.running = true; t.left = null; t.endAt = Date.now() + t.dur * 1000;
+    var prev = wk.items[A.active.itemIdx - 1];
+    if (prev && prev.superset && A.setList(prev).some(function (z) { return !A.active.done[z.key]; })) { A.active.itemIdx--; A.active.setKey = null; }
+    if (!next) { A.active.exDone[it.id] = true; A.toast("Exercício concluído! Avance para o próximo ›"); }
     A.render();
   };
   A.actions.tMode = function (el) { var t = ensureTimer(); t.mode = el.dataset.m; t.running = false; t.left = null; t.acc = 0; A.render(); };
@@ -353,6 +369,12 @@
     A.render();
   };
   A.actions.tReset = function () { var t = ensureTimer(); t.running = false; t.left = null; t.acc = 0; A.render(); };
+  A.actions.tEdit = function () {
+    var t = ensureTimer();
+    A.sheet("Tempo de descanso", '<div class="stack"><div class="row"><div class="field grow"><label>Minutos</label><input id="teM" type="number" min="0" value="' + Math.floor(t.dur / 60) + '"></div><div class="field grow"><label>Segundos</label><input id="teS" type="number" min="0" max="59" value="' + (t.dur % 60) + '"></div></div><button class="btn primary block" data-act="tEditOk">Usar este tempo</button></div>');
+  };
+  A.actions.tEditOk = function () { var t = ensureTimer(); t.dur = Math.max(5, (parseInt(document.getElementById("teM").value, 10) || 0) * 60 + (parseInt(document.getElementById("teS").value, 10) || 0)); t.running = false; t.left = null; A.closeSheet(); A.render(); };
+  A.actions.exDone = function (el) { var it = A.activeWorkout().items[A.active.itemIdx]; A.active.exDone = A.active.exDone || {}; A.active.exDone[it.id] = el.checked; A.saveActive(); if (el.checked && A.active.itemIdx < A.activeWorkout().items.length - 1) { A.active.itemIdx++; A.active.setKey = null; A.render(true); } else A.render(); };
   A.actions.pse = function (el) { var it = A.activeWorkout().items[A.active.itemIdx]; A.active.pse[it.id] = parseInt(el.dataset.n, 10); A.render(); };
   A.actions.exNote = function (el) { var it = A.activeWorkout().items[A.active.itemIdx]; A.active.exNotes[it.id] = el.value; A.saveActive(); };
   A.actions.swapEx = function () {
@@ -380,7 +402,7 @@
   A.actions.confirmFinish = function () {
     var sets = Object.keys(A.active.done).map(function (k) { var d = A.active.done[k]; var swapped = (A.active.swaps || {})[d.itemId]; return { itemId: d.itemId, exId: swapped || d.exId, type: d.type, idx: d.idx, weight: d.weight, reps: d.reps }; });
     var note = (document.getElementById("fnNote") || {}).value || "";
-    A.logs().sessions.push({ id: P.uid("ses"), workoutId: A.active.workoutId, workoutName: A.active.workoutName, date: P.todayISO(), durationSec: (parseInt(document.getElementById("fnDur").value, 10) || 1) * 60, effort: A._eff || null, note: note, pse: A.active.pse, exNotes: A.active.exNotes, sets: sets });
+    A.logs().sessions.push({ id: P.uid("ses"), workoutId: A.active.workoutId, workoutName: A.active.workoutName, date: P.todayISO(), durationSec: (parseInt(document.getElementById("fnDur").value, 10) || 1) * 60, effort: A._eff || null, note: note, pse: A.active.pse, exNotes: A.active.exNotes, exDone: Object.keys(A.active.exDone || {}).filter(function (k) { return A.active.exDone[k]; }), sets: sets });
     P.save(); A.active = null; A.saveActive(); A._eff = null; clearInterval(A.timerInt); A.closeSheet();
     A.stack = [{ v: "home", p: {} }]; A.tabRoot = "home"; A.render(true); A.toast("🎉 Treino salvo! Bom trabalho.");
   };

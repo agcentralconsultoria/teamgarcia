@@ -9,7 +9,7 @@
   T.render = function (top) {
     document.body.classList.toggle("nologin", T.state !== "ready");
     if (T.state !== "ready") { document.getElementById("side").innerHTML = ""; document.getElementById("main").innerHTML = T.views.login(); return; }
-    var menu = [["sec", "Geral"], ["dash", "📊 Painel"], ["alunos", "👥 Alunos"], ["sec", "Bibliotecas"], ["exercicios", "🏋️ Exercícios"], ["tecnicas", "🎯 Técnicas"], ["alimentos", "🥗 Alimentos"], ["sec", "Acompanhamento"], ["questionario", "📋 Questionários de check-in"], ["materiais", "📚 Materiais extras"], ["config", "⚙️ Configurações"]];
+    var menu = [["sec", "Geral"], ["dash", "📊 Painel"], ["alunos", "👥 Alunos"], ["sec", "Treino"], ["modelosT", "🗂️ Treinos pré-definidos"], ["exercicios", "🏋️ Exercícios"], ["substEx", "🔁 Substituição de exercício"], ["tecnicas", "🎯 Técnicas"], ["grupos", "💪 Grupamentos musculares"], ["sec", "Dieta"], ["modelosD", "🗂️ Dietas pré-definidas"], ["modelosR", "🍽️ Refeições pré-definidas"], ["alimentos", "🥗 Alimentos"], ["substAl", "🔁 Substituição de alimentos"], ["sec", "Acompanhamento"], ["questionario", "📋 Questionários"], ["notificacoes", "🔔 Notificações"], ["materiais", "📚 Materiais extras"], ["config", "⚙️ Configurações"]];
     var root = T.page === "aluno" ? "alunos" : T.page;
     document.getElementById("side").innerHTML = '<div class="brand"><i>TG</i>' + esc(P.APP_NAME) + ' <span class="small muted" style="font-weight:600">treinador</span></div>' + menu.map(function (m) {
       return m[0] === "sec" ? '<div class="sec">' + m[1] + "</div>" : '<button class="' + (root === m[0] ? "on" : "") + '" data-act="nav" data-v="' + m[0] + '">' + m[1] + "</button>";
