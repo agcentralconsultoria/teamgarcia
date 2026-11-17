@@ -3,7 +3,7 @@
 (function () {
   "use strict";
   var P = window.Proto, T = window.T, esc = P.esc;
-  var V = "20261116c";
+  var V = "20261116d";
 
   function svg(d) { return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + d + "</svg>"; }
   var IC = {
@@ -17,6 +17,8 @@
     sair: svg('<path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/>'),
     sino: svg('<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/>'),
     sol: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/>'),
+    lampada: svg('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>'),
+    ajuda: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7M12 17h.01"/>'),
     voltar: svg('<path d="M19 12H5M11 6l-6 6 6 6"/>'),
     menu: svg('<path d="M4 6h16M4 12h10M4 18h16M17 9l3 3-3 3"/>'),
     cima: svg('<path d="M6 15l6-6 6 6"/>'),
@@ -29,6 +31,7 @@
     { k: "treino", label: "Treino", items: [["modelosT", "Treinos pré-definidos"], ["exercicios", "Exercícios"], ["substEx", "Substituição de exercício"], ["tecnicas", "Técnicas de exercício"], ["grupos", "Grupamentos musculares"]], pages: ["modelosT", "exercicios", "substEx", "tecnicas", "grupos"] },
     { k: "dieta", label: "Dieta", items: [["modelosD", "Dietas pré-definidas"], ["alimentos", "Alimentos"], ["substAl", "Substituição de alimentos"], ["modelosR", "Refeições pré-definidas"]], pages: ["modelosD", "alimentos", "substAl", "modelosR"] },
     { k: "conteudo", label: "Conteúdo", items: [["materiais", "Materiais extras"]], pages: ["materiais"] },
+    { k: "ajuda", label: "Suporte", go: "suporte", pages: ["suporte", "conta"] },
     { k: "config", label: "Configurações", go: "config", pages: ["config"] }
   ];
   function groupOf(page) {
@@ -77,9 +80,10 @@
   }
   function topHtml() {
     var u = window.FB && window.FB.user && window.FB.user(), mail = u && u.email || "", n = pending().length, light = theme() === "claro";
-    return '<div class="topbar"><button class="top-menu" data-act="menu" title="Menu">' + IC.menu + '</button><button class="theme-sw' + (light ? " light" : "") + '" data-act="themeToggle" title="' + (light ? "Mudar para o tema escuro" : "Mudar para o tema claro") + '"><i>' + (light ? IC.sol : IC.lua) + "</i></button>" +
+    return '<div class="topbar"><button class="top-menu" data-act="menu" title="Menu">' + IC.menu + '</button><span class="top-bulb" title="Tema claro ou escuro">' + IC.lampada + '</span><button class="theme-sw' + (light ? " light" : "") + '" data-act="themeToggle" title="' + (light ? "Mudar para o tema escuro" : "Mudar para o tema claro") + '"><i>' + (light ? IC.sol : IC.lua) + "</i></button>" +
+      '<button class="top-sup" data-act="nav" data-v="suporte" title="Ajuda e suporte">' + IC.ajuda + "<span>Suporte</span></button>" +
       '<button class="top-ico" data-act="bellOpen" title="Atualizações aguardando sua resposta">' + IC.sino + (n ? '<span class="badge">' + n + "</span>" : "") + "</button>" +
-      '<button class="top-user" data-act="userMenu"><span class="top-name"><b>' + esc((u && u.displayName) || "Ângelo") + '</b><span class="small muted">Treinador</span></span><img src="icons/logo.png?v=' + V + '" alt=""></button></div>';
+      '<button class="top-user" data-act="userMenu"><span class="top-name"><b>' + esc(P.db.settings.trainerName || "Ângelo") + '</b><span class="small muted">' + esc(P.db.settings.trainerRole || "Treinador") + '</span></span><img src="icons/logo.png?v=' + V + '" alt=""></button></div>';
   }
   T.actions.bellOpen = function () {
     var list = pending();
@@ -90,10 +94,66 @@
   };
   T.actions.bellGo = function (el) { T.closeSheet(); T.go("aluno", { id: el.dataset.id, tab: "atualizacoes" }); };
   T.actions.userMenu = function () {
-    var u = window.FB && window.FB.user && window.FB.user();
-    T.sheet("Conta", '<div class="stack"><div class="small muted">' + esc(u && u.email || "") + '</div><a class="btn block" style="text-decoration:none;color:var(--text)" href="aluno.html" target="_blank">Abrir app do aluno</a><button class="btn block" data-act="userTheme">Trocar tema (claro / escuro)</button><button class="btn block danger" data-act="logout">Sair</button></div>');
+    var old = document.querySelector(".user-dd"); if (old) { old.remove(); return; }
+    function item(act, ico, label, extra) { return "<button " + act + (extra || "") + ">" + ico + "<span>" + label + "</span></button>"; }
+    document.querySelector(".topbar").insertAdjacentHTML("beforeend", '<div class="user-dd">' +
+      item('data-act="nav" data-v="conta"', IC.alunos, "Conta") + item('data-act="nav" data-v="suporte"', IC.ajuda, "Suporte") +
+      '<a href="aluno.html" target="_blank">' + IC.app + "<span>Abrir app do aluno</span></a>" +
+      item('data-act="userTheme"', theme() === "claro" ? IC.lua : IC.sol, theme() === "claro" ? "Tema escuro" : "Tema claro") +
+      item('data-act="logout"', IC.sair, "Sair", ' class="danger"') + "</div>");
   };
-  T.actions.userTheme = function () { T.closeSheet(); T.actions.themeToggle(); };
+  document.addEventListener("click", function (e) { if (!e.target.closest(".top-user") && !e.target.closest(".user-dd")) { var d = document.querySelector(".user-dd"); if (d) d.remove(); } });
+  T.actions.userTheme = function () { T.actions.themeToggle(); };
+
+  /* ---------- Página Conta ---------- */
+  T.pages.conta = function () {
+    var u = window.FB && window.FB.user && window.FB.user(), c = P.db.settings;
+    function f(k, label, ph) { return '<div class="field"><label>' + label + '</label><input value="' + esc(c[k] || "") + '" placeholder="' + (ph || "") + '" data-change="contaField" data-k="' + k + '"></div>'; }
+    return '<div class="page-title">Conta</div><div class="muted" style="margin-bottom:14px">Seus dados no site do treinador.</div>' +
+      '<div class="grid2"><div class="card stack"><b>Como você aparece</b><div class="grid2">' + f("trainerName", "Nome (aparece no topo)") + f("trainerRole", "Função (ex.: Treinador, Nutricionista)") + '</div><div class="small muted">Salva sozinho ao sair do campo.</div></div>' +
+      '<div class="card stack"><b>Acesso</b><div class="field"><label>E-mail de login</label><input value="' + esc(u && u.email || "") + '" readonly style="opacity:.7"></div><button class="btn" style="align-self:flex-start" data-act="contaSenha">✉️ Enviar e-mail para trocar a senha</button><div class="small muted">A senha não fica guardada no sistema. O link chega no e-mail acima.</div></div></div>' +
+      '<div class="card stack" style="margin-top:14px"><b>Contato de suporte para os seus alunos</b><div class="small muted">Aparece na página Suporte e no perfil do aluno, no app, como "Falar com meu treinador".</div><div class="grid2">' + f("supportWhats", "WhatsApp (com DDD)", "21999990000") + f("supportEmail", "E-mail (opcional)", "voce@exemplo.com") + "</div></div>";
+  };
+  T.actions.contaField = function (el) { P.db.settings[el.dataset.k] = el.value.trim(); P.save(); T.toast("Salvo"); if (/trainer/.test(el.dataset.k)) T.render(); };
+  T.actions.contaSenha = function () {
+    var u = window.FB && window.FB.user && window.FB.user(); if (!u || !u.email) return;
+    if (!confirm("Enviar para " + u.email + " um e-mail para criar nova senha?")) return;
+    window.FB.resetPassword(u.email).then(function () { T.toast("E-mail enviado para " + u.email + "."); }, function (e) { T.toast(P.authError(e)); });
+  };
+
+  /* ---------- Página Suporte: ajuda rápida, contato e registro de problemas ---------- */
+  var GUIA = [
+    ["Cadastrar um aluno", "Vá em Alunos e toque em + Novo aluno. Defina o e-mail e a senha inicial e envie esses dados para ele. Depois monte o treino e a dieta nas abas da ficha."],
+    ["Montar ou trocar o treino", "Abra o aluno e entre em Ficha de treino. Adicione os exercícios, séries e intervalos e toque em Salvar e enviar ao aluno. Para começar de um modelo, use Importar treino pré-definido."],
+    ["Montar ou trocar a dieta", "Abra o aluno e entre em Ficha de dieta. Crie as refeições, opções e substituições e salve. O app mostra ao aluno o que mudou."],
+    ["Pedir check-in e fotos", "Na aba Atualizações do aluno, em Programados, crie uma atualização com data, questionários e fotos. Ela pode se repetir sozinha toda semana."],
+    ["Responder um check-in", "O sino no topo mostra quem está esperando resposta. Abra, leia as respostas e escreva o seu retorno: ele aparece no app do aluno."],
+    ["Mandar um aviso para os alunos", "Em Alunos > Notificações, crie o aviso para todos, para uma etiqueta ou para alunos específicos. Ele aparece no sino do app."],
+    ["Colocar o app na tela do celular do aluno", "O aluno abre o endereço do app no navegador, toca em Compartilhar e escolhe Adicionar à Tela de Início."]
+  ];
+  T.pages.suporte = function () {
+    var c = P.db.settings, list = (P.db.issues || []).slice().reverse(), open = list.filter(function (x) { return !x.done; }).length;
+    var wa = c.supportWhats ? P.waLink(c.supportWhats, "") : "";
+    return '<div class="page-title">Suporte</div><div class="muted" style="margin-bottom:14px">Ajuda rápida, o seu contato para os alunos e o registro de problemas do app.</div>' +
+      '<div class="card stack"><b style="font-size:17px">Precisa de ajuda?</b><div class="small muted">Toque numa pergunta para ver o passo a passo.</div>' + GUIA.map(function (g, i) {
+        var on = T._guia === i;
+        return '<div class="guia"><button class="guia-q" data-act="guiaTog" data-i="' + i + '"><span class="grow">' + esc(g[0]) + "</span><span>" + (on ? "−" : "+") + "</span></button>" + (on ? '<div class="guia-a">' + esc(g[1]) + "</div>" : "") + "</div>";
+      }).join("") + "</div>" +
+      '<div class="grid2" style="margin-top:14px"><div class="card stack"><b>Contato de suporte dos seus alunos</b>' + (c.supportWhats || c.supportEmail ?
+        (c.supportWhats ? '<a class="btn" style="text-decoration:none;color:var(--text);align-self:flex-start" target="_blank" rel="noopener" href="' + esc(wa) + '">💬 WhatsApp: ' + esc(c.supportWhats) + "</a>" : "") + (c.supportEmail ? '<div>✉️ ' + esc(c.supportEmail) + "</div>" : "") + '<div class="small muted">É o que o aluno vê em "Falar com meu treinador" no app.</div>'
+        : '<div class="small muted">Nenhum contato cadastrado ainda.</div>') + '<button class="btn sm" style="align-self:flex-start" data-act="nav" data-v="conta">Editar contato</button></div>' +
+      '<div class="card stack"><b>Registrar um problema ou ideia</b><div class="small muted">Anote aqui o que você ou seus alunos encontrarem. Fica guardado para a gente corrigir depois.</div><textarea id="issTxt" rows="3" placeholder="Ex.: no celular do João o botão de enviar fotos não respondeu"></textarea><button class="btn primary" style="align-self:flex-start" data-act="issAdd">Registrar</button></div></div>' +
+      '<div class="card" style="margin-top:14px"><b>Registros (' + open + " em aberto)</b>" + (list.length ? '<div class="list" style="margin-top:6px">' + list.map(function (x) {
+        return '<div class="list-item"><input type="checkbox" style="width:auto" data-change="issDone" data-id="' + x.id + '"' + (x.done ? " checked" : "") + '><span class="grow" style="' + (x.done ? "opacity:.55;text-decoration:line-through" : "") + '">' + esc(x.text) + '<div class="small muted">' + P.fmtDate(x.date) + (x.done ? " · resolvido" : "") + '</div></span><button class="icon-btn" style="color:var(--danger)" data-act="issDel" data-id="' + x.id + '">×</button></div>';
+      }).join("") + "</div>" : '<div class="empty">Nenhum registro ainda.</div>') + "</div>";
+  };
+  T.actions.guiaTog = function (el) { T._guia = T._guia === +el.dataset.i ? null : +el.dataset.i; T.render(); };
+  T.actions.issAdd = function () {
+    var t = document.getElementById("issTxt").value.trim(); if (!t) { T.toast("Escreva o que aconteceu."); return; }
+    P.db.issues = P.db.issues || []; P.db.issues.push({ id: P.uid("iss"), date: P.todayISO(), text: t, done: false }); P.save(); T.toast("Registrado."); T.render();
+  };
+  T.actions.issDone = function (el) { var x = (P.db.issues || []).filter(function (y) { return y.id === el.dataset.id; })[0]; if (x) { x.done = el.checked; P.save(); T.render(); } };
+  T.actions.issDel = function (el) { if (!confirm("Apagar este registro?")) return; P.db.issues = (P.db.issues || []).filter(function (y) { return y.id !== el.dataset.id; }); P.save(); T.render(); };
 
   /* ---------- Barra de atalhos no celular (recolhível) ---------- */
   function barOpen() { try { return localStorage.getItem("teamgarcia.barra") !== "fechada"; } catch (e) { return true; } }

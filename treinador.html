@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TeamGarcia · Treinador</title>
-<link rel="icon" href="icons/icon-192.png?v=20261116c">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=20261116c">
+<link rel="icon" href="icons/icon-192.png?v=20261116d">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=20261116d">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261116c">
+<link rel="stylesheet" href="style.css?v=20261116d">
 <style>
   .layout { display: flex; min-height: 100vh; }
   body.nologin .side, body.nologin .mobile-top { display: none !important; }
@@ -41,6 +41,19 @@
   .theme-sw i { position: absolute; top: 2px; left: 24px; width: 20px; height: 20px; border-radius: 50%; background: #fff; color: #1e3a8a; display: grid; place-items: center; transition: left .2s; }
   .theme-sw i svg { width: 13px; height: 13px; }
   .theme-sw.light { background: #f59e0b; } .theme-sw.light i { left: 2px; color: #b45309; }
+  .top-bulb { display: inline-grid; place-items: center; color: var(--muted); margin-right: -8px; }
+  .top-bulb svg { width: 18px; height: 18px; }
+  .top-sup { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; color: var(--text); padding: 6px 8px; border-radius: 8px; }
+  .top-sup:hover { background: var(--card2); }
+  .topbar { position: relative; }
+  .user-dd { position: absolute; right: 0; top: calc(100% + 6px); z-index: 70; min-width: 210px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px; box-shadow: var(--shadow); }
+  .user-dd button, .user-dd a { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border-radius: 8px; font-weight: 600; font-size: 14px; color: var(--text); text-decoration: none; text-align: left; }
+  .user-dd button:hover, .user-dd a:hover { background: var(--card2); }
+  .user-dd .danger { color: var(--danger); }
+  .user-dd svg { width: 17px; height: 17px; color: var(--muted); }
+  .guia { border-top: 1px solid var(--line); }
+  .guia-q { display: flex; width: 100%; gap: 10px; padding: 12px 2px; font-weight: 600; text-align: left; }
+  .guia-a { padding: 0 2px 12px; color: var(--muted); }
   .top-ico { position: relative; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--text); }
   .top-ico:hover { background: var(--card2); }
   .top-ico .badge { position: absolute; top: -2px; right: -4px; background: #b91c1c; color: #fff; border-radius: 99px; font-size: 10.5px; font-weight: 700; min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 4px; }
@@ -118,7 +131,8 @@
     .side.open { left: 0; box-shadow: 0 0 0 100vmax rgba(0,0,0,.6); }
     .rail-close { display: grid !important; place-items: center; margin-left: auto; width: 36px; height: 36px; border-radius: 10px; color: var(--muted); }
     .top-menu { display: grid !important; place-items: center; margin-right: auto; width: 38px; height: 38px; border-radius: 10px; color: var(--text); }
-    .theme-sw { display: none; }
+    .theme-sw, .top-bulb, .top-sup { display: none; }
+    .user-dd { right: 12px; }
     .bbar { display: flex !important; }
     .sticky-save { bottom: 44px; }
     body.bbar-open .sticky-save { bottom: 104px; }
@@ -149,12 +163,12 @@
 <div class="layout"><aside class="side" id="side"></aside><main class="main" id="main"></main></div>
 <div id="bbar" class="bbar"></div>
 <div id="modal"></div>
-<script src="shared.js?v=20261116c"></script>
-<script src="tr-core.js?v=20261116c"></script>
-<script src="tr-editores.js?v=20261116c"></script>
-<script src="tr-extra.js?v=20261116c"></script>
-<script src="tr-paginas.js?v=20261116c"></script>
-<script src="tr-shell.js?v=20261116c"></script>
-<script type="module" src="fb.js?v=20261116c"></script>
+<script src="shared.js?v=20261116d"></script>
+<script src="tr-core.js?v=20261116d"></script>
+<script src="tr-editores.js?v=20261116d"></script>
+<script src="tr-extra.js?v=20261116d"></script>
+<script src="tr-paginas.js?v=20261116d"></script>
+<script src="tr-shell.js?v=20261116d"></script>
+<script type="module" src="fb.js?v=20261116d"></script>
 </body>
 </html>

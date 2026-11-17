@@ -222,3 +222,18 @@
     var r = new FileReader(); r.onload = function () { var img = new Image(); img.onload = function () { var c = document.createElement("canvas"), s = 220 / Math.min(img.width, img.height); c.width = c.height = 220; c.getContext("2d").drawImage(img, (220 - img.width * s) / 2, (220 - img.height * s) / 2, img.width * s, img.height * s); A.logs().avatar = c.toDataURL("image/jpeg", 0.7); P.save(); A.render(); }; img.src = r.result; }; r.readAsDataURL(f);
   };
 })();
+
+/* Suporte no app do aluno: contato cadastrado pelo treinador (Conta > Contato de suporte) */
+(function () {
+  "use strict";
+  var P = window.Proto, A = window.A, esc = P.esc, base = A.views.perfil;
+  A.views.perfil = function () {
+    var html = base(), c = P.db.settings || {}, me = A.me();
+    if (!c.supportWhats && !c.supportEmail) return html;
+    var msg = "Oi! Sou " + String(me.name || "").split(" ")[0] + " e preciso de ajuda com o app.";
+    var box = '<div class="card stack"><b>Suporte</b><div class="small muted">Dúvida ou problema no app? Fale com o seu treinador.</div>' +
+      (c.supportWhats ? '<a class="btn primary block" style="text-decoration:none" target="_blank" rel="noopener" href="' + esc(P.waLink(c.supportWhats, msg)) + '">💬 Falar com meu treinador</a>' : "") +
+      (c.supportEmail ? '<a class="btn block" style="text-decoration:none;color:var(--text)" href="mailto:' + esc(c.supportEmail) + '">✉️ ' + esc(c.supportEmail) + "</a>" : "") + "</div>";
+    return html.replace('<button class="btn block danger" data-act="logout">', box + '<button class="btn block danger" data-act="logout">');
+  };
+})();

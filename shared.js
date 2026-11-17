@@ -94,7 +94,8 @@
       ].map(function (t) { return { id: uid("tag"), name: t[0], color: t[1] }; }),
       notices: [],
       subTables: { foods: [], exercises: [] },
-      extraForms: []
+      extraForms: [],
+      issues: []
     };
   }
 
@@ -103,7 +104,8 @@
       minPhotos: 3, weeklyPhotos: false, askEffortOnFinish: true, allowUnitChange: true, appName: APP_NAME,
       pseByExercise: true, logWarmPrepLoad: true, allowSubs: true, prescribeLoad: true, showChanges: true,
       allowStudentFiles: false, defaultWorkoutNotes: "", defaultDietNotes: "", crnImg: "",
-      recoverNoTrainDays: 7, recoverNoOpenDays: 5, ckDaysBefore: 0, ckDaysAfter: 0, scheduleEveryDays: 7
+      recoverNoTrainDays: 7, recoverNoOpenDays: 5, ckDaysBefore: 0, ckDaysAfter: 0, scheduleEveryDays: 7,
+      trainerName: "Ângelo", trainerRole: "Treinador", supportWhats: "", supportEmail: ""
     };
   }
   function blankTemplates() { return { folders: [], workouts: [], diets: [], meals: [] }; }
@@ -120,7 +122,7 @@
        files/{uid}                anexos que o treinador manda ao aluno
        trainers/{uid}             marca quem é o treinador (criado só pelo console)  */
   var db = null, role = null, myUid = null, loader = null;
-  var LIB_KEYS = ["groups", "exercises", "techniques", "foods", "questionnaire", "questionnaireMonthly", "materials", "settings", "tags", "notices", "subTables", "extraForms"];
+  var LIB_KEYS = ["groups", "exercises", "techniques", "foods", "questionnaire", "questionnaireMonthly", "materials", "settings", "tags", "notices", "subTables", "extraForms", "issues"];
   var LOG_KEYS = ["water", "mealsDone", "mealNotes", "weights", "checkins", "cardio", "materialsSeen", "workoutNotes", "uploads", "noticesSeen", "lastSeen", "avatar", "changesSeen", "comparisons"];
   var DEEP = { profile: 1, feedback: 1 }; // campos gravados item a item (treinador e aluno não se atropelam)
   var saved = {}, filesLoaded = {}, filesLoading = {}, photoCache = {}, photoWaiting = {};
