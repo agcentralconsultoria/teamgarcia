@@ -3,7 +3,7 @@
 (function () {
   "use strict";
   var P = window.Proto, T = window.T, esc = P.esc;
-  var V = "20261116b";
+  var V = "20261116c";
 
   function svg(d) { return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + d + "</svg>"; }
   var IC = {
@@ -17,6 +17,10 @@
     sair: svg('<path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/>'),
     sino: svg('<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/>'),
     sol: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/>'),
+    voltar: svg('<path d="M19 12H5M11 6l-6 6 6 6"/>'),
+    menu: svg('<path d="M4 6h16M4 12h10M4 18h16M17 9l3 3-3 3"/>'),
+    cima: svg('<path d="M6 15l6-6 6 6"/>'),
+    baixo: svg('<path d="M6 9l6 6 6-6"/>'),
     lua: svg('<path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10z"/>')
   };
   var MENU = [
@@ -41,10 +45,10 @@
   /* ---------- Menu lateral ---------- */
   function sideHtml() {
     var cur = groupOf(T.page);
-    return '<div class="rail-logo"><img src="icons/logo.png?v=' + V + '" alt="AG"><b>' + esc(P.APP_NAME) + "</b></div>" + MENU.map(function (m) {
-      var on = m === cur ? " on" : "";
+    return '<div class="rail-logo"><img src="icons/logo.png?v=' + V + '" alt="AG"><b>' + esc(P.APP_NAME) + '</b><button class="rail-close" data-act="menu" title="Fechar menu">' + IC.voltar + "</button></div>" + MENU.map(function (m) {
+      var on = (m === cur ? " on" : "") + (m.k === T._railOpen ? " open" : "");
       if (m.go) return '<div class="rail-item' + on + '"><button class="rail-btn" data-act="nav" data-v="' + m.go + '" title="' + m.label + '">' + IC[m.k] + '<span class="rail-label">' + m.label + '</span></button><div class="fly"><div class="fly-in"><button data-act="nav" data-v="' + m.go + '">' + m.label + "</button></div></div></div>";
-      return '<div class="rail-item' + on + '"><button class="rail-btn" ' + (m.items.length === 1 ? 'data-act="nav" data-v="' + m.items[0][0] + '"' : 'data-act="railOpen"') + ' title="' + m.label + '">' + IC[m.k] + '<span class="rail-label">' + m.label + '</span></button><div class="fly"><div class="fly-in">' + m.items.map(function (i) {
+      return '<div class="rail-item' + on + '"><button class="rail-btn" ' + (m.items.length === 1 ? 'data-act="nav" data-v="' + m.items[0][0] + '"' : 'data-act="railOpen" data-k="' + m.k + '"') + ' title="' + m.label + '">' + IC[m.k] + '<span class="rail-label">' + m.label + '</span></button><div class="fly"><div class="fly-in">' + m.items.map(function (i) {
         return '<button class="' + (T.page === i[0] || (i[0] === "alunos" && T.page === "aluno") ? "on" : "") + '" data-act="nav" data-v="' + i[0] + '">' + i[1] + "</button>";
       }).join("") + "</div></div></div>";
     }).join("") + '<div class="rail-sep"></div>' +
@@ -55,13 +59,17 @@
     var it = el.closest(".rail-item"), was = it.classList.contains("open");
     [].forEach.call(document.querySelectorAll(".rail-item.open"), function (x) { x.classList.remove("open"); });
     if (!was) it.classList.add("open");
+    T._railOpen = was ? null : el.dataset.k; // lembra o grupo aberto se a tela for redesenhada
   };
   document.addEventListener("click", function (e) {
-    if (!e.target.closest(".rail-item")) [].forEach.call(document.querySelectorAll(".rail-item.open"), function (x) { x.classList.remove("open"); });
+    if (!e.target.closest(".rail-item")) { T._railOpen = null; [].forEach.call(document.querySelectorAll(".rail-item.open"), function (x) { x.classList.remove("open"); }); }
     // celular: tocar fora do menu aberto fecha a gaveta
     var side = document.getElementById("side");
     if (side && side.classList.contains("open") && !e.target.closest("#side") && !e.target.closest("[data-act=menu]")) side.classList.remove("open");
   });
+
+  var baseNav = T.actions.nav;
+  T.actions.nav = function (el) { T._railOpen = null; baseNav(el); };
 
   /* ---------- Barra do topo ---------- */
   function pending() {
@@ -69,7 +77,7 @@
   }
   function topHtml() {
     var u = window.FB && window.FB.user && window.FB.user(), mail = u && u.email || "", n = pending().length, light = theme() === "claro";
-    return '<div class="topbar"><button class="theme-sw' + (light ? " light" : "") + '" data-act="themeToggle" title="' + (light ? "Mudar para o tema escuro" : "Mudar para o tema claro") + '"><i>' + (light ? IC.sol : IC.lua) + "</i></button>" +
+    return '<div class="topbar"><button class="top-menu" data-act="menu" title="Menu">' + IC.menu + '</button><button class="theme-sw' + (light ? " light" : "") + '" data-act="themeToggle" title="' + (light ? "Mudar para o tema escuro" : "Mudar para o tema claro") + '"><i>' + (light ? IC.sol : IC.lua) + "</i></button>" +
       '<button class="top-ico" data-act="bellOpen" title="Atualizações aguardando sua resposta">' + IC.sino + (n ? '<span class="badge">' + n + "</span>" : "") + "</button>" +
       '<button class="top-user" data-act="userMenu"><span class="top-name"><b>' + esc((u && u.displayName) || "Ângelo") + '</b><span class="small muted">Treinador</span></span><img src="icons/logo.png?v=' + V + '" alt=""></button></div>';
   }
@@ -87,11 +95,24 @@
   };
   T.actions.userTheme = function () { T.closeSheet(); T.actions.themeToggle(); };
 
+  /* ---------- Barra de atalhos no celular (recolhível) ---------- */
+  function barOpen() { try { return localStorage.getItem("teamgarcia.barra") !== "fechada"; } catch (e) { return true; } }
+  function bottomHtml() {
+    var g = groupOf(T.page).k, n = pending().length, open = barOpen();
+    function tab(on, act, ico, label, badge) { return '<button class="' + (on ? "on" : "") + '" ' + act + ">" + ico + (badge ? '<span class="badge">' + badge + "</span>" : "") + "<span>" + label + "</span></button>"; }
+    return '<button class="bbar-handle" data-act="bbarToggle" title="' + (open ? "Recolher atalhos" : "Mostrar atalhos") + '">' + (open ? IC.baixo : IC.cima) + '</button><div class="bbar-in">' +
+      tab(g === "inicio", 'data-act="nav" data-v="dash"', IC.inicio, "Início") + tab(g === "alunos", 'data-act="nav" data-v="alunos"', IC.alunos, "Alunos") +
+      tab(false, 'data-act="bellOpen"', IC.sino, "Pendentes", n) + tab(g === "config", 'data-act="nav" data-v="config"', IC.config, "Ajustes") + "</div>";
+  }
+  T.actions.bbarToggle = function () { try { localStorage.setItem("teamgarcia.barra", barOpen() ? "fechada" : "aberta"); } catch (e) {} T.render(); };
+
   /* ---------- Render: aplica a moldura por cima das páginas ---------- */
   var baseRender = T.render;
   T.render = function (top) {
     baseRender.call(T, top);
-    if (T.state !== "ready") return;
+    var bar = document.getElementById("bbar");
+    if (T.state !== "ready") { if (bar) bar.innerHTML = ""; return; }
+    if (bar) { bar.innerHTML = bottomHtml(); bar.classList.toggle("open", barOpen()); document.body.classList.toggle("bbar-open", barOpen()); }
     var side = document.getElementById("side"), wasOpen = side.classList.contains("open");
     side.innerHTML = sideHtml(); if (wasOpen) side.classList.add("open");
     var main = document.getElementById("main");
