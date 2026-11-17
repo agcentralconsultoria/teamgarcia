@@ -207,7 +207,7 @@
     }).join("") + '<button class="btn" data-act="tagAdd">+ Nova etiqueta</button><button class="btn primary" data-act="tagsDone">Pronto</button></div>');
   };
   T.actions.tagField = function (el) { P.db.tags[+el.dataset.i][el.dataset.k] = el.value; P.save(); };
-  T.actions.tagAdd = function () { P.db.tags.push({ id: P.uid("tag"), name: "Nova etiqueta", color: "#2dd4bf" }); P.save(); T.actions.manageTags(); };
+  T.actions.tagAdd = function () { P.db.tags.push({ id: P.uid("tag"), name: "Nova etiqueta", color: "#f26b21" }); P.save(); T.actions.manageTags(); };
   T.actions.tagMove = function (el) { var a = P.db.tags, i = +el.dataset.i; if (i > 0) { a.splice(i - 1, 0, a.splice(i, 1)[0]); P.save(); } T.actions.manageTags(); };
   T.actions.tagDel = function (el) {
     var t = P.db.tags[+el.dataset.i]; if (!confirm("Apagar a etiqueta " + t.name + "? Ela sai de todos os alunos.")) return;

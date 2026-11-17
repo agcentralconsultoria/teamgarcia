@@ -82,7 +82,7 @@
 
   /* ---------- Login ---------- */
   A.views.login = function () {
-    return '<div class="login stack"><div class="logo">TG</div><div><div class="title-xl">' + esc(P.APP_NAME) + '</div><div class="muted">Seu treino e sua dieta, num lugar só.</div></div>' +
+    return '<div class="login stack"><img class="logo-img" src="icons/logo.png?v=20261116" alt="AG" style="width:104px;height:104px;"><div><div class="title-xl">' + esc(P.APP_NAME) + '</div><div class="muted">Seu treino e sua dieta, num lugar só.</div></div>' +
       '<div class="field"><label>E-mail</label><input id="lgEmail" type="email" autocomplete="username" inputmode="email"></div>' +
       '<div class="field"><label>Senha</label><input id="lgPass" type="password" autocomplete="current-password"></div>' +
       '<button class="btn primary block" data-act="login">Entrar</button>' +
@@ -96,7 +96,7 @@
       inactive: "Seu acesso está pausado. Fale com seu treinador.",
       error: "Não foi possível carregar seus dados. Confira a internet e tente de novo."
     }[A.state] || "Carregando…";
-    return '<div class="login stack" style="text-align:center"><div class="logo" style="margin:0 auto">TG</div><div class="muted">' + esc(msg) + "</div>" +
+    return '<div class="login stack" style="text-align:center"><img class="logo-img" src="icons/logo.png?v=20261116" alt="AG" style="width:96px;height:96px;margin:0 auto"><div class="muted">' + esc(msg) + "</div>" +
       (A.state === "loading" ? "" : '<button class="btn block" data-act="logout">Sair</button>') + "</div>";
   };
   A.actions.login = function (el) {
