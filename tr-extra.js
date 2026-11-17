@@ -112,7 +112,7 @@
     for (var d = 1; d <= dim; d++) {
       var iso = y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0"), list = ev[iso] || [], byType = {};
       list.forEach(function (e) { byType[e.type] = (byType[e.type] || 0) + 1; });
-      cells += '<button class="d' + (iso === t ? " today" : "") + '" data-act="calDay" data-d="' + iso + '"><b>' + d + "</b>" + Object.keys(byType).map(function (k) { return '<span class="ev" style="background:' + EV[k][1] + '">' + byType[k] + " " + EV[k][0].toLowerCase() + "</span>"; }).join("") + "</button>";
+      cells += '<button class="d' + (iso === t ? " today" : "") + '" data-act="calDay" data-d="' + iso + '"><b>' + d + "</b>" + Object.keys(byType).map(function (k) { return '<span class="evc" style="background:' + EV[k][1] + '" title="' + byType[k] + " · " + EV[k][0] + '">' + byType[k] + "</span>"; }).join("") + "</button>";
     }
     return '<div class="card" style="margin-top:16px"><div class="row between wrap"><div class="row wrap small" style="gap:10px">' + Object.keys(EV).map(function (k) { return '<span><i class="dot" style="background:' + EV[k][1] + '"></i> ' + EV[k][0] + "</span>"; }).join("") + '</div><span class="small muted">Toque no dia para ver os detalhes</span></div>' +
       '<div class="row between" style="margin:10px 0"><button class="btn sm" data-act="calNav" data-d="-1">‹ Anterior</button><b style="font-size:17px">' + MESES[m] + " de " + y + '</b><button class="btn sm" data-act="calNav" data-d="1">Próximo ›</button></div><div class="calm">' + cells + "</div></div>";

@@ -11,7 +11,7 @@
     if (T.state !== "ready") { document.getElementById("side").innerHTML = ""; document.getElementById("main").innerHTML = T.views.login(); return; }
     var menu = [["sec", "Geral"], ["dash", "📊 Painel"], ["alunos", "👥 Alunos"], ["sec", "Treino"], ["modelosT", "🗂️ Treinos pré-definidos"], ["exercicios", "🏋️ Exercícios"], ["substEx", "🔁 Substituição de exercício"], ["tecnicas", "🎯 Técnicas"], ["grupos", "💪 Grupamentos musculares"], ["sec", "Dieta"], ["modelosD", "🗂️ Dietas pré-definidas"], ["modelosR", "🍽️ Refeições pré-definidas"], ["alimentos", "🥗 Alimentos"], ["substAl", "🔁 Substituição de alimentos"], ["sec", "Acompanhamento"], ["questionario", "📋 Questionários"], ["notificacoes", "🔔 Notificações"], ["materiais", "📚 Materiais extras"], ["config", "⚙️ Configurações"]];
     var root = T.page === "aluno" ? "alunos" : T.page;
-    document.getElementById("side").innerHTML = '<div class="brand"><img src="icons/logo.png?v=20261116" alt="AG">' + esc(P.APP_NAME) + ' <span class="small muted" style="font-weight:600">treinador</span></div>' + menu.map(function (m) {
+    document.getElementById("side").innerHTML = '<div class="brand"><img src="icons/logo.png?v=20261116b" alt="AG">' + esc(P.APP_NAME) + ' <span class="small muted" style="font-weight:600">treinador</span></div>' + menu.map(function (m) {
       return m[0] === "sec" ? '<div class="sec">' + m[1] + "</div>" : '<button class="' + (root === m[0] ? "on" : "") + '" data-act="nav" data-v="' + m[0] + '">' + m[1] + "</button>";
     }).join("") + '<div class="sec">Conta</div><a class="side-link" href="aluno.html" target="_blank">📱 Abrir app do aluno</a><button data-act="logout">🚪 Sair</button>';
     document.getElementById("main").innerHTML = (T.pages[T.page] || T.pages.dash)(T.p);
@@ -39,7 +39,7 @@
   /* ---------- Login do treinador ---------- */
   T.views = {};
   T.views.login = function () {
-    if (T.state === "login") return '<div class="card stack" style="max-width:380px;margin:40px auto"><div class="brand" style="padding:0"><img src="icons/logo.png?v=20261116" alt="AG">' + esc(P.APP_NAME) + ' <span class="small muted" style="font-weight:600">treinador</span></div>' +
+    if (T.state === "login") return '<div class="card stack" style="max-width:380px;margin:40px auto"><div class="brand" style="padding:0"><img src="icons/logo.png?v=20261116b" alt="AG">' + esc(P.APP_NAME) + ' <span class="small muted" style="font-weight:600">treinador</span></div>' +
       '<div class="field"><label>E-mail</label><input id="tlEmail" type="email" autocomplete="username"></div><div class="field"><label>Senha</label><input id="tlPass" type="password" autocomplete="current-password"></div>' +
       '<button class="btn primary block" data-act="login">Entrar</button><button class="btn ghost block" data-act="forgot">Esqueci minha senha</button></div>';
     var msg = { loading: "Carregando…", denied: "Esta conta não tem acesso ao site do treinador.", error: "Não foi possível carregar os dados. Confira a internet e recarregue a página." }[T.state] || "Carregando…";
