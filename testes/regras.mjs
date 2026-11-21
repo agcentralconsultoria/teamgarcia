@@ -76,6 +76,34 @@ await expect("conta estranha NÃO lê a biblioteca", req("GET", "library/main", 
 await expect("conta estranha NÃO lê aluno A", req("GET", `logs/${a.uid}`, x.token), "negado");
 await expect("sem login NÃO lê nada", req("GET", `students/${a.uid}`, null), "negado");
 
+console.log("\n— Equipe, registro de alterações e comunidade");
+const f = await signUp("funcionario@teste.local");
+await expect("funcionário ainda sem cadastro NÃO lê alunos", req("GET", `students/${a.uid}`, f.token), "negado");
+await expect("dono cadastra o funcionário", req("PATCH", `staff/${f.uid}`, tr.token, { name: "F", active: true, perms: { alunos: true } }), "ok");
+await expect("funcionário ativo lê aluno A", req("GET", `students/${a.uid}`, f.token), "ok");
+await expect("funcionário grava registro de alteração com o próprio nome", req("PATCH", `audit/a1`, f.token, { uid: f.uid, who: "F", table: "x", action: "y", at: "2026" }), "ok");
+await expect("funcionário NÃO grava registro em nome de outro", req("PATCH", `audit/a2`, f.token, { uid: tr.uid, who: "T", table: "x", action: "y", at: "2026" }), "negado");
+await expect("ninguém edita um registro de alteração", req("PATCH", `audit/a1`, tr.token, { uid: tr.uid, who: "T", table: "z", action: "y", at: "2026" }), "negado");
+await expect("funcionário NÃO lê a observação pessoal do dono", req("GET", `notes/${a.uid}`, f.token), "negado");
+await expect("funcionário NÃO muda as próprias permissões", req("PATCH", `staff/${f.uid}`, f.token, { name: "F", active: true, perms: { config: true } }), "negado");
+await expect("funcionário NÃO vira dono", req("PATCH", `trainers/${f.uid}`, f.token, { x: 1 }), "negado");
+await expect("funcionário NÃO apaga aluno", req("DELETE", `students/${a.uid}`, f.token), "negado");
+await expect("aluno NÃO lê o cadastro de funcionários", req("GET", `staff/${f.uid}`, a.token), "negado");
+await expect("aluno NÃO lê o registro de alterações", req("GET", `audit/a1`, a.token), "negado");
+const post = (uid, team = false) => ({ authorId: uid, authorName: "X", team, text: "oi", photo: "", at: "2026-11-16T10:00:00Z", likes: {}, comments: [], pinned: false });
+await expect("aluno A posta na comunidade", req("PATCH", `community/p1`, a.token, post(a.uid)), "ok");
+await expect("aluno A NÃO posta em nome de outro", req("PATCH", `community/p2`, a.token, post(b.uid)), "negado");
+await expect("aluno A NÃO posta como equipe", req("PATCH", `community/p3`, a.token, post(a.uid, true)), "negado");
+await expect("dono posta na comunidade", req("PATCH", `community/p4`, tr.token, post(tr.uid, true)), "ok");
+await expect("aluno B lê o post", req("GET", `community/p4`, b.token), "ok");
+await expect("aluno B curte o post", req("PATCH", `community/p4`, b.token, { likes: { [b.uid]: true } }, ["likes"]), "ok");
+await expect("aluno B NÃO muda o texto do post", req("PATCH", `community/p4`, b.token, { text: "hack" }, ["text"]), "negado");
+await expect("aluno B NÃO apaga post de outro", req("DELETE", `community/p4`, b.token), "negado");
+await expect("aluno A apaga o próprio post", req("DELETE", `community/p1`, a.token), "ok");
+await expect("conta estranha NÃO lê a comunidade", req("GET", `community/p4`, x.token), "negado");
+await expect("dono desativa o funcionário", req("PATCH", `staff/${f.uid}`, tr.token, { name: "F", active: false, perms: {} }), "ok");
+await expect("funcionário inativo NÃO lê alunos", req("GET", `students/${a.uid}`, f.token), "negado");
+
 console.log("\n— Aluno inativo");
 await expect("treinador desativa B", req("PATCH", `students/${b.uid}`, tr.token, { profile: { active: false } }, ["profile.active"]), "ok");
 await expect("B inativo NÃO lê os registros", req("GET", `logs/${b.uid}`, b.token), "negado");

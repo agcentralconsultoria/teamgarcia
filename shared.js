@@ -105,7 +105,9 @@
       pseByExercise: true, logWarmPrepLoad: true, allowSubs: true, prescribeLoad: true, showChanges: true,
       allowStudentFiles: false, defaultWorkoutNotes: "", defaultDietNotes: "", crnImg: "",
       recoverNoTrainDays: 7, recoverNoOpenDays: 5, ckDaysBefore: 0, ckDaysAfter: 0, scheduleEveryDays: 7,
-      trainerName: "Ângelo", trainerRole: "Treinador", supportWhats: "", supportEmail: ""
+      trainerName: "Ângelo", trainerRole: "Treinador", supportWhats: "", supportEmail: "",
+      communityOn: false, studentPosts: true, studentComments: true,
+      gameOn: false, gameStart: "", game: { treino: 10, dieta: 5, cardio: 5, checkin: 15, post: 2, maxDia: 40 }, competitions: []
     };
   }
   function blankTemplates() { return { folders: [], workouts: [], diets: [], meals: [] }; }
@@ -122,6 +124,7 @@
        files/{uid}                anexos que o treinador manda ao aluno
        trainers/{uid}             marca quem é o treinador (criado só pelo console)  */
   var db = null, role = null, myUid = null, loader = null;
+  var owner = false, perms = null, meName = "", lastAudit = {};
   var LIB_KEYS = ["groups", "exercises", "techniques", "foods", "questionnaire", "questionnaireMonthly", "materials", "settings", "tags", "notices", "subTables", "extraForms", "issues"];
   var LOG_KEYS = ["water", "mealsDone", "mealNotes", "weights", "checkins", "cardio", "materialsSeen", "workoutNotes", "uploads", "noticesSeen", "lastSeen", "avatar", "changesSeen", "comparisons"];
   var DEEP = { profile: 1, feedback: 1 }; // campos gravados item a item (treinador e aluno não se atropelam)
@@ -145,7 +148,7 @@
     out["logs/" + id] = ld;
     (l.sessions || []).forEach(function (x) { var y = String(x.date || "").slice(0, 4) || "0000"; (years[y] = years[y] || []).push(x); });
     Object.keys(years).forEach(function (y) { out["logs/" + id + "/years/" + y] = { sessions: clone(years[y]) }; });
-    if (role === "trainer") out["notes/" + id] = { text: s.privateNotes || "" };
+    if (role === "trainer" && owner) out["notes/" + id] = { text: s.privateNotes || "" };
     if (role === "trainer" && filesLoaded[id]) out["files/" + id] = { list: clone(db.attachments[id] || []) };
     return out;
   }
@@ -215,6 +218,7 @@
       var data = docs[path], upd = diffDoc(path, data);
       if (upd && !Object.keys(upd).length) return;
       var snap = snapshot(data), before = saved[path];
+      if (role === "trainer" && Date.now() - lastLoad > 3000) auditPath(path, upd);
       saved[path] = snap; pending++;
       (upd ? window.FB.update(path, upd) : window.FB.set(path, data)).then(function () { pending--; }, function (e) {
         pending--; if (saved[path] === snap) { if (before) saved[path] = before; else delete saved[path]; }
@@ -225,7 +229,7 @@
   function busy() { return !!timer || pending > 0; }
   window.addEventListener("pagehide", function () { if (timer) sync(); });
 
-  function blankDb() { return { students: [], workoutPlans: {}, dietPlans: {}, logs: {}, attachments: {}, notifications: [], schedules: {}, histories: {}, templates: blankTemplates() }; }
+  function blankDb() { return { students: [], workoutPlans: {}, dietPlans: {}, logs: {}, attachments: {}, notifications: [], schedules: {}, histories: {}, templates: blankTemplates(), staff: [], staffGroups: [], ranking: null, posts: [] }; }
   function applyLibrary(lib) {
     var base = lib || seed(), fresh = null;
     LIB_KEYS.forEach(function (k) { if (base[k] != null) db[k] = base[k]; else { fresh = fresh || seed(); db[k] = fresh[k]; } });
@@ -248,11 +252,18 @@
   }
 
   async function loadTrainer(FB, me) {
-    if (!(await FB.get("trainers/" + me))) return "denied";
-    var r = await Promise.all([FB.get("library/main"), FB.list("students"), FB.list("logs"), FB.list("notes"), FB.get("library/templates")]);
+    // Dono (treinador) ou funcionário ativo cadastrado pelo dono
+    var tdoc = await FB.get("trainers/" + me), sdoc = null;
+    if (!tdoc) { sdoc = await FB.get("staff/" + me).catch(function () { return null; }); if (!sdoc || !sdoc.active) return "denied"; }
+    var isOwner = !!tdoc, none = Promise.resolve([]);
+    var r = await Promise.all([FB.get("library/main"), FB.list("students"), FB.list("logs"), isOwner ? FB.list("notes") : none, FB.get("library/templates"), isOwner ? FB.list("staff") : none, FB.get("library/ranking")]);
     var years = await Promise.all(r[1].map(function (s) { return FB.list("logs/" + s.id + "/years"); }));
     var keepFiles = db && role === "trainer" ? { a: db.attachments, f: filesLoaded } : null;
     db = blankDb(); role = "trainer"; filesLoaded = {};
+    owner = isOwner; perms = isOwner ? null : (sdoc.perms || {}); meName = isOwner ? "" : (sdoc.name || "");
+    db.staff = r[5].filter(function (d) { return d.id !== "_groups"; }).map(function (d) { var x = clone(d.data); x.id = d.id; return x; });
+    db.staffGroups = ((r[5].filter(function (d) { return d.id === "_groups"; })[0] || { data: {} }).data.list) || [];
+    db.ranking = r[6] || null;
     applyLibrary(r[0]);
     db.templates = (r[4] && r[4].templates) || blankTemplates();
     ["folders", "workouts", "diets", "meals"].forEach(function (k) { if (!db.templates[k]) db.templates[k] = []; });
@@ -279,8 +290,9 @@
     var sd = await FB.get("students/" + me);
     if (!sd) return "denied";
     if (!sd.profile || !sd.profile.active) return "inactive";
-    var r = await Promise.all([FB.get("library/main"), FB.get("logs/" + me), FB.list("logs/" + me + "/years"), FB.get("files/" + me)]);
-    db = blankDb(); role = "student"; filesLoaded = {};
+    var r = await Promise.all([FB.get("library/main"), FB.get("logs/" + me), FB.list("logs/" + me + "/years"), FB.get("files/" + me), FB.get("library/ranking").catch(function () { return null; })]);
+    db = blankDb(); role = "student"; filesLoaded = {}; owner = false; perms = null;
+    db.ranking = r[4] || null;
     applyLibrary(r[0]);
     addStudent(me, sd, r[1], r[2], null);
     db.attachments[me] = r[3] ? r[3].list || [] : []; filesLoaded[me] = true;
@@ -347,6 +359,104 @@
     if (d.length === 10 || d.length === 11) d = "55" + d;
     return "https://wa.me/" + d + "?text=" + encodeURIComponent(text);
   }
+
+  /* ---------- Equipe: permissões e registro de alterações ---------- */
+  function can(p) { return role !== "trainer" || owner || !p || !!(perms && perms[p]); }
+  function whoName() { return owner ? ((db && db.settings && db.settings.trainerName) || "Treinador") : (meName || "Funcionário"); }
+  function shortName(n) { var p = String(n || "").trim().split(/\s+/); return p[0] + (p.length > 1 ? " " + p[p.length - 1][0] + "." : ""); }
+  var AUD = { workoutPlan: "Ficha de treino", dietPlan: "Ficha de dieta", schedule: "Atualizações programadas", history: "Fichas inativas", profile: "Informações do aluno",
+    exercises: "Exercícios", techniques: "Técnicas de exercício", foods: "Alimentos", groups: "Grupamentos musculares", questionnaire: "Questionários", questionnaireMonthly: "Questionários",
+    extraForms: "Questionários", materials: "Materiais extras", settings: "Configurações", tags: "Etiquetas", notices: "Notificações", subTables: "Tabelas de substituição", issues: "Registro de problemas" };
+  function audit(table, action, target) {
+    if (role !== "trainer" || !window.FB) return;
+    var k = table + "|" + action + "|" + (target || ""), now = Date.now();
+    if (lastAudit[k] && now - lastAudit[k] < 60000) return; // junta alterações seguidas no mesmo lugar
+    lastAudit[k] = now;
+    var st = target ? student(target) : null;
+    window.FB.set("audit/" + now + "_" + Math.random().toString(36).slice(2, 7), { at: new Date().toISOString(), uid: myUid, who: whoName(), table: table, action: action, target: target || "", targetName: st ? st.name : "" }).catch(function (e) { console.warn(e); });
+  }
+  function auditPath(path, upd) {
+    var p = path.split("/"), act = upd ? "Atualização" : "Criação", keys = upd ? Object.keys(upd) : [];
+    if (p[0] === "students") {
+      var tops = {}; keys.forEach(function (k) { if (k !== "profile.updatedAt") tops[k.split(".")[0]] = 1; });
+      if (!upd) tops = { profile: 1 };
+      Object.keys(tops).forEach(function (k) { audit(AUD[k] || "Cadastro do aluno", act, p[1]); });
+    } else if (p[0] === "logs" && p[2] === "photos") return;
+    else if (p[0] === "logs") audit(p[2] === "years" ? "Treinos do aluno" : "Registros e respostas ao aluno", act, p[1]);
+    else if (p[0] === "notes") audit("Observações pessoais", act, p[1]);
+    else if (p[0] === "files") audit("Anexos do aluno", act, p[1]);
+    else if (path === "library/templates") audit("Modelos pré-definidos", act);
+    else if (path === "library/main") { var seen = {}; keys.forEach(function (k) { var l = AUD[k.split(".")[0]]; if (l && !seen[l]) { seen[l] = 1; audit(l, act); } }); }
+  }
+  function staffGroup(id) { return (db.staffGroups || []).filter(function (g) { return g.id === id; })[0]; }
+  function staffData(st) { var g = staffGroup(st.groupId); return { name: st.name || "", email: st.email || "", groupId: st.groupId || "", groupName: g ? g.name : "", perms: g && g.active !== false ? clone(g.perms || {}) : {}, active: !!st.active, createdAt: st.createdAt || todayISO() }; }
+  function saveStaff(st) { audit("Funcionários", "Atualização"); return window.FB.set("staff/" + st.id, staffData(st)); }
+  async function createStaff(st, pass) {
+    var id = await window.FB.createUser(st.email, pass);
+    st.id = id; st.createdAt = todayISO();
+    await window.FB.set("staff/" + id, staffData(st));
+    db.staff.push(st); audit("Funcionários", "Criação");
+    return id;
+  }
+  /* Grava os grupos e repassa as permissões para cada funcionário (é o que as regras e o site consultam). */
+  function saveGroups() {
+    audit("Permissões de funcionário", "Atualização");
+    return window.FB.set("staff/_groups", { list: clone(db.staffGroups) }).then(function () { return Promise.all(db.staff.map(function (st) { return window.FB.set("staff/" + st.id, staffData(st)); })); });
+  }
+  function loadAudit(n) { return window.FB.recent("audit", "at", n || 200).then(function (l) { return l.map(function (d) { return d.data; }); }); }
+
+  /* ---------- Comunidade ---------- */
+  function myAuthor() {
+    if (role === "trainer") return { authorId: myUid, authorName: whoName(), team: true };
+    return { authorId: myUid, authorName: shortName((student(myUid) || {}).name), team: false };
+  }
+  function loadPosts(cb) {
+    window.FB.recent("community", "at", 60).then(function (l) { db.posts = l.map(function (d) { var x = d.data; x.id = d.id; return x; }); if (cb) cb(); }, function (e) { console.warn(e); if (cb) cb(e); });
+  }
+  function addPost(text, photoUrl) {
+    var p = myAuthor(); p.text = text; p.photo = photoUrl || ""; p.at = new Date().toISOString(); p.likes = {}; p.comments = []; p.pinned = false;
+    var id = Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+    return window.FB.set("community/" + id, p).then(function () { p.id = id; db.posts.unshift(p); if (role === "trainer") audit("Comunidade", "Criação"); return p; });
+  }
+  function likePost(p) {
+    p.likes = p.likes || {}; var u = {};
+    if (p.likes[myUid]) { delete p.likes[myUid]; u["likes." + myUid] = window.FB.del(); } else { p.likes[myUid] = true; u["likes." + myUid] = true; }
+    return window.FB.update("community/" + p.id, u);
+  }
+  function commentPost(p, text) {
+    var a = myAuthor(), c = { id: uid("c"), text: text, at: new Date().toISOString(), authorId: a.authorId, authorName: a.authorName, team: a.team };
+    p.comments = (p.comments || []).concat([c]);
+    return window.FB.update("community/" + p.id, { comments: window.FB.union(c) });
+  }
+  function delPost(p) { db.posts = db.posts.filter(function (x) { return x.id !== p.id; }); if (role === "trainer") audit("Comunidade", "Exclusão"); return window.FB.remove("community/" + p.id); }
+  function delComment(p, cid) { p.comments = (p.comments || []).filter(function (c) { return c.id !== cid; }); return window.FB.update("community/" + p.id, { comments: p.comments }); }
+  function pinPost(p) { p.pinned = !p.pinned; return window.FB.update("community/" + p.id, { pinned: p.pinned }); }
+
+  /* ---------- Competições: pontos e ranking ---------- */
+  function gameCfg() { var d = defaultSettings().game, g = (db.settings && db.settings.game) || {}, o = {}; Object.keys(d).forEach(function (k) { o[k] = g[k] != null && g[k] !== "" ? +g[k] : d[k]; }); return o; }
+  /* Pontos de um aluno num período. Cada tipo conta uma vez por dia, com teto diário. */
+  function points(sid, from, to) {
+    var l = logsOf(sid), g = gameCfg(), dp = db.dietPlans[sid], days = {};
+    function add(d, k, v) { if (!d || d < from || d > to || !v) return; (days[d] = days[d] || {})[k] = v; }
+    (l.sessions || []).forEach(function (x) { add(x.date, "t", g.treino); });
+    Object.keys(l.mealsDone || {}).forEach(function (d) { if (!dp) return; var v = variationForDay(dp, new Date(d + "T12:00:00").getDay()); if (v && v.meals.length && (l.mealsDone[d] || []).length >= v.meals.length) add(d, "d", g.dieta); });
+    (l.cardio || []).forEach(function (c) { add(c.date, "c", g.cardio); });
+    (l.checkins || []).forEach(function (c) { if (!c.byTrainer) add(c.date, "k", g.checkin); });
+    (db.posts || []).forEach(function (p) { if (p.authorId === sid) add(String(p.at).slice(0, 10), "p", g.post); });
+    var tot = 0;
+    Object.keys(days).forEach(function (d) { var sum = 0; Object.keys(days[d]).forEach(function (k) { sum += days[d][k]; }); tot += g.maxDia ? Math.min(g.maxDia, sum) : sum; });
+    return tot;
+  }
+  function rankRows(from, to) {
+    return db.students.filter(function (x) { return x.active && !x.__tpl; }).map(function (x) { return { id: x.id, n: shortName(x.name), p: points(x.id, from, to) }; }).sort(function (a, b) { return b.p - a.p || a.n.localeCompare(b.n); });
+  }
+  function buildRanking() {
+    var t = todayISO(), st = db.settings, start = st.gameStart || t, m0 = t.slice(0, 8) + "01";
+    function later(a, b) { return a > b ? a : b; }
+    return { updatedAt: new Date().toISOString(), start: start, month: { ym: t.slice(0, 7), rows: rankRows(later(m0, start), t) }, all: { rows: rankRows(start, t) },
+      comps: (st.competitions || []).map(function (c) { return { id: c.id, name: c.name, from: c.from, to: c.to, prize: c.prize || "", rows: rankRows(later(c.from, start), c.to) }; }) };
+  }
+  function publishRanking() { db.ranking = buildRanking(); return window.FB.set("library/ranking", db.ranking); }
 
   /* ---------- Consultas ---------- */
   function exercise(id) { return db.exercises.filter(function (e) { return e.id === id; })[0] || { name: "(exercício removido)", group: "" }; }
@@ -551,7 +661,10 @@
 
   window.Proto = {
     APP_NAME: APP_NAME, save: save, flush: sync, busy: busy, start: start, refresh: refresh, hooks: hooks,
-    get db() { return db; }, get role() { return role; }, get myUid() { return myUid; },
+    get db() { return db; }, get role() { return role; }, get myUid() { return myUid; }, get isOwner() { return owner; },
+    can: can, whoName: whoName, shortName: shortName, audit: audit, saveStaff: saveStaff, createStaff: createStaff, saveGroups: saveGroups, loadAudit: loadAudit, staffGroup: staffGroup,
+    loadPosts: loadPosts, addPost: addPost, likePost: likePost, commentPost: commentPost, delPost: delPost, delComment: delComment, pinPost: pinPost,
+    gameCfg: gameCfg, points: points, buildRanking: buildRanking, publishRanking: publishRanking,
     photo: photo, ensureFiles: ensureFiles, createStudent: createStudent, authError: authError, waLink: waLink,
     uid: uid, todayISO: todayISO, addDays: addDays, fmtDate: fmtDate, esc: esc, round1: round1,
     exercise: exercise, technique: technique, qList: qList, forms: forms, formName: formName,

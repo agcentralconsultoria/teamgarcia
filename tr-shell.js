@@ -23,17 +23,35 @@
     menu: svg('<path d="M4 6h16M4 12h10M4 18h16M17 9l3 3-3 3"/>'),
     cima: svg('<path d="M6 15l6-6 6 6"/>'),
     baixo: svg('<path d="M6 9l6 6 6-6"/>'),
+    comunidade: svg('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>'),
+    equipe: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.6c2 .6 3.5 2.3 3.5 5.4"/>'),
     lua: svg('<path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10z"/>')
   };
   var MENU = [
     { k: "inicio", label: "Início", go: "dash", pages: ["dash"] },
-    { k: "alunos", label: "Alunos", items: [["alunos", "Alunos"], ["questionario", "Questionários"], ["notificacoes", "Notificações"]], pages: ["alunos", "aluno", "questionario", "notificacoes"] },
+    { k: "alunos", label: "Alunos", items: [["alunos", "Alunos"], ["questionario", "Questionários dinâmicos"], ["notificacoes", "Notificações"]], pages: ["alunos", "aluno", "questionario", "notificacoes"] },
     { k: "treino", label: "Treino", items: [["modelosT", "Treinos pré-definidos"], ["exercicios", "Exercícios"], ["substEx", "Substituição de exercício"], ["tecnicas", "Técnicas de exercício"], ["grupos", "Grupamentos musculares"]], pages: ["modelosT", "exercicios", "substEx", "tecnicas", "grupos"] },
     { k: "dieta", label: "Dieta", items: [["modelosD", "Dietas pré-definidas"], ["alimentos", "Alimentos"], ["substAl", "Substituição de alimentos"], ["modelosR", "Refeições pré-definidas"]], pages: ["modelosD", "alimentos", "substAl", "modelosR"] },
+    { k: "comunidade", label: "Comunidade", items: [["feed", "Feed da comunidade"], ["competicoes", "Competições"]], pages: ["feed", "competicoes"] },
     { k: "conteudo", label: "Conteúdo", items: [["materiais", "Materiais extras"]], pages: ["materiais"] },
-    { k: "ajuda", label: "Suporte", go: "suporte", pages: ["suporte", "conta"] },
+    { k: "equipe", label: "Equipe", items: [["funcionarios", "Funcionários"], ["permissoes", "Permissões de funcionário"], ["logs", "Logs de auditoria"]], pages: ["funcionarios", "permissoes", "logs", "grupoEdit"] },
+    { k: "ajuda", label: "Ajuda", items: [["ajuda", "Central de ajuda"], ["aulas", "Aulas"], ["suporte", "Suporte"]], pages: ["ajuda", "aulas", "suporte", "conta"] },
     { k: "config", label: "Configurações", go: "config", pages: ["config"] }
   ];
+  /* Permissão que cada página exige ("dono" = só o treinador dono da conta). Sem entrada = livre para a equipe. */
+  var NEED = { alunos: "alunos", aluno: "alunos", questionario: "questionarios", notificacoes: "notificacoes", modelosT: "modelosT", exercicios: "exercicios", tecnicas: "exercicios", grupos: "exercicios",
+    substEx: "substEx", modelosD: "modelosD", alimentos: "alimentos", substAl: "substAl", modelosR: "refeicoes", materiais: "materiais", config: "config",
+    feed: "comunidade", competicoes: "comunidade", funcionarios: "dono", permissoes: "dono", logs: "dono", grupoEdit: "dono" };
+  T.needOf = function (page, p) { if (page === "tplEdit") return p && p.k === "d" ? "modelosD" : "modelosT"; return NEED[page] || ""; };
+  T.allowed = function (page, p) { var n = T.needOf(page, p); if (!n) return true; if (n === "dono") return P.isOwner; return P.can(n); };
+  function visibleMenu() {
+    return MENU.map(function (m) {
+      if (m.go) return T.allowed(m.go) ? m : null;
+      var items = m.items.filter(function (i) { return T.allowed(i[0]); });
+      if (!items.length) return null;
+      var c = {}; Object.keys(m).forEach(function (k) { c[k] = m[k]; }); c.items = items; return c;
+    }).filter(Boolean);
+  }
   function groupOf(page) {
     if (page === "tplEdit") return T.p && T.p.k === "d" ? MENU[3] : MENU[2];
     return MENU.filter(function (m) { return m.pages.indexOf(page) >= 0; })[0] || MENU[0];
@@ -47,9 +65,9 @@
 
   /* ---------- Menu lateral ---------- */
   function sideHtml() {
-    var cur = groupOf(T.page);
-    return '<div class="rail-logo"><img src="icons/logo.png?v=' + V + '" alt="AG"><b>' + esc(P.APP_NAME) + '</b><button class="rail-close" data-act="menu" title="Fechar menu">' + IC.voltar + "</button></div>" + MENU.map(function (m) {
-      var on = (m === cur ? " on" : "") + (m.k === T._railOpen ? " open" : "");
+    var cur = groupOf(T.page).k;
+    return '<div class="rail-logo"><img src="icons/logo.png?v=' + V + '" alt="AG"><b>' + esc(P.APP_NAME) + '</b><button class="rail-close" data-act="menu" title="Fechar menu">' + IC.voltar + "</button></div>" + visibleMenu().map(function (m) {
+      var on = (m.k === cur ? " on" : "") + (m.k === T._railOpen ? " open" : "");
       if (m.go) return '<div class="rail-item' + on + '"><button class="rail-btn" data-act="nav" data-v="' + m.go + '" title="' + m.label + '">' + IC[m.k] + '<span class="rail-label">' + m.label + '</span></button><div class="fly"><div class="fly-in"><button data-act="nav" data-v="' + m.go + '">' + m.label + "</button></div></div></div>";
       return '<div class="rail-item' + on + '"><button class="rail-btn" ' + (m.items.length === 1 ? 'data-act="nav" data-v="' + m.items[0][0] + '"' : 'data-act="railOpen" data-k="' + m.k + '"') + ' title="' + m.label + '">' + IC[m.k] + '<span class="rail-label">' + m.label + '</span></button><div class="fly"><div class="fly-in">' + m.items.map(function (i) {
         return '<button class="' + (T.page === i[0] || (i[0] === "alunos" && T.page === "aluno") ? "on" : "") + '" data-act="nav" data-v="' + i[0] + '">' + i[1] + "</button>";
@@ -71,6 +89,11 @@
     if (side && side.classList.contains("open") && !e.target.closest("#side") && !e.target.closest("[data-act=menu]")) side.classList.remove("open");
   });
 
+  var shellGo = T.go;
+  T.go = function (page, p) {
+    if (T.state === "ready" && !T.allowed(page, p)) { T.toast("Você não tem permissão para esta área. Fale com o responsável pela conta."); page = "dash"; p = {}; }
+    shellGo(page, p);
+  };
   var baseNav = T.actions.nav;
   T.actions.nav = function (el) { T._railOpen = null; baseNav(el); };
 
@@ -83,7 +106,7 @@
     return '<div class="topbar"><button class="top-menu" data-act="menu" title="Menu">' + IC.menu + '</button><span class="top-bulb" title="Tema claro ou escuro">' + IC.lampada + '</span><button class="theme-sw' + (light ? " light" : "") + '" data-act="themeToggle" title="' + (light ? "Mudar para o tema escuro" : "Mudar para o tema claro") + '"><i>' + (light ? IC.sol : IC.lua) + "</i></button>" +
       '<button class="top-sup" data-act="nav" data-v="suporte" title="Ajuda e suporte">' + IC.ajuda + "<span>Suporte</span></button>" +
       '<button class="top-ico" data-act="bellOpen" title="Atualizações aguardando sua resposta">' + IC.sino + (n ? '<span class="badge">' + n + "</span>" : "") + "</button>" +
-      '<button class="top-user" data-act="userMenu"><span class="top-name"><b>' + esc(P.db.settings.trainerName || "Ângelo") + '</b><span class="small muted">' + esc(P.db.settings.trainerRole || "Treinador") + '</span></span><img src="icons/logo.png?v=' + V + '" alt=""></button></div>';
+      '<button class="top-user" data-act="userMenu"><span class="top-name"><b>' + esc(P.isOwner ? (P.db.settings.trainerName || "Ângelo") : P.whoName()) + '</b><span class="small muted">' + esc(P.isOwner ? (P.db.settings.trainerRole || "Treinador") : "Equipe") + '</span></span><img src="icons/logo.png?v=' + V + '" alt=""></button></div>';
   }
   T.actions.bellOpen = function () {
     var list = pending();

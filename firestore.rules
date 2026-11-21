@@ -8,6 +8,12 @@ service cloud.firestore {
     function isTrainer() {
       return signedIn() && exists(/databases/$(database)/documents/trainers/$(request.auth.uid));
     }
+    // Funcionário: quem tem documento ativo em /staff/{uid} (criado só pelo treinador dono).
+    function isStaff() {
+      return signedIn() && exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+        && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.active == true;
+    }
+    function isTeam() { return isTrainer() || isStaff(); }
     function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
     function studentDoc(uid) { return get(/databases/$(database)/documents/students/$(uid)); }
     function isActiveStudent(uid) {
@@ -23,15 +29,16 @@ service cloud.firestore {
 
     // Bibliotecas compartilhadas (exercícios, técnicas, alimentos, questionário, materiais, configurações)
     match /library/{doc} {
-      allow read: if isTrainer() || isAnyActiveStudent();
-      allow write: if isTrainer();
+      allow read: if isTeam() || isAnyActiveStudent();
+      allow write: if isTeam();
     }
 
     // Cadastro + ficha de treino + dieta do aluno
     match /students/{uid} {
-      allow read: if isTrainer() || isSelf(uid);
-      allow create, delete: if isTrainer();
-      allow update: if isTrainer() || (
+      allow read: if isTeam() || isSelf(uid);
+      allow create: if isTeam();
+      allow delete: if isTrainer();
+      allow update: if isTeam() || (
         isActiveStudent(uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['profile'])
         && request.resource.data.profile.diff(resource.data.profile).affectedKeys()
@@ -41,15 +48,15 @@ service cloud.firestore {
 
     // Registros do aluno (treinos, água, refeições, peso, check-ins) e fotos
     match /logs/{uid} {
-      allow read, create, update: if isTrainer() || isActiveStudent(uid);
+      allow read, create, update: if isTeam() || isActiveStudent(uid);
       allow delete: if isTrainer();
       match /years/{year} {
-        allow read, create, update: if isTrainer() || isActiveStudent(uid);
+        allow read, create, update: if isTeam() || isActiveStudent(uid);
         allow delete: if isTrainer();
       }
       match /photos/{photo} {
-        allow read: if isTrainer() || isActiveStudent(uid);
-        allow create: if (isTrainer() || isActiveStudent(uid))
+        allow read: if isTeam() || isActiveStudent(uid);
+        allow create: if (isTeam() || isActiveStudent(uid))
           && request.resource.data.data is string
           && request.resource.data.data.size() < 300000;
         allow update: if false;
@@ -64,8 +71,31 @@ service cloud.firestore {
 
     // Arquivos (anexos) que o treinador manda para o aluno
     match /files/{uid} {
-      allow read: if isTrainer() || isActiveStudent(uid);
+      allow read: if isTeam() || isActiveStudent(uid);
+      allow write: if isTeam();
+    }
+
+    // Equipe: cadastro dos funcionários e grupos de permissão (só o dono grava; o funcionário lê o próprio)
+    match /staff/{uid} {
+      allow read: if isTrainer() || isSelf(uid);
       allow write: if isTrainer();
+    }
+
+    // Registro de alterações (ninguém edita nem apaga)
+    match /audit/{id} {
+      allow read: if isTeam();
+      allow create: if isTeam() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Comunidade: posts do treinador e dos alunos ativos
+    match /community/{id} {
+      allow read: if isTeam() || isAnyActiveStudent();
+      allow create: if isTeam() || (isAnyActiveStudent() && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.team == false && request.resource.data.pinned == false);
+      allow update: if isTeam() || (isAnyActiveStudent()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'comments']));
+      allow delete: if isTeam() || (isAnyActiveStudent() && resource.data.authorId == request.auth.uid);
     }
 
     match /{document=**} {

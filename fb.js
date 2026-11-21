@@ -7,7 +7,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
-  doc, getDoc, getDocs, setDoc, updateDoc, collection, deleteField, connectFirestoreEmulator
+  doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, deleteField, arrayUnion, query, orderBy, limit, connectFirestoreEmulator
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 const config = {
@@ -51,6 +51,10 @@ window.FB = {
   set(path, data) { return setDoc(ref(path), data); },
   update(path, data) { return updateDoc(ref(path), data); },
   del: deleteField,
+  union(v) { return arrayUnion(v); },
+  remove(path) { return deleteDoc(ref(path)); },
+  // Últimos N documentos de uma coleção, do mais novo para o mais antigo.
+  async recent(path, field, n) { const q = await getDocs(query(collection(fs, path), orderBy(field, "desc"), limit(n))); return q.docs.map(d => ({ id: d.id, data: d.data() })); },
   // Cria a conta do aluno sem desconectar o treinador (usa uma segunda instância do app).
   async createUser(email, pass) {
     const second = initializeApp(config, "criar-" + Date.now());
